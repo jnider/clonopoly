@@ -111,7 +111,8 @@ static void Run(void)
             break;
 
          case SDL_MOUSEBUTTONDOWN:
-            return;
+            player[0].location++;
+            player[0].location %= NUM_PROPERTIES;
             break;
 
          case SDL_QUIT:
@@ -125,9 +126,11 @@ static void Run(void)
       SDL_BlitSurface(board_img, NULL, screen, NULL);
 
       // draw the player icons
-      dest.x = 10;
-      dest.y = 10;
-      //SDL_BlitSurface(shoe, NULL, screen, &dest);
+      for (int i=0; i < MAX_PLAYERS; i++)
+      {
+         if (player[i].active)
+            SDL_BlitSurface(piece[player[i].piece], NULL, screen, &board[player[i].location].loc);
+      }
 
 #if DEBUG
       // show property alignment
@@ -178,6 +181,9 @@ int main(int argc, char* args[])
          return 1;
       }
    }
+   
+   // set up the player info
+   player[0].active = 1;
 
    Run();
 
