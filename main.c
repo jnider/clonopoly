@@ -36,6 +36,14 @@ typedef struct Property
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
 
+typedef struct Window
+{
+   int active;             // is this window visible & active
+   SDL_Surface* surface;   // what to draw
+   SDL_Rect loc;           // boundaries of the window on the screen
+   SDL_Rect size;          // absolute size of the window (x=0,y=0,h>0,y>0)
+} Window;
+
 static const char* piece_name[PIECE_COUNT] =
 {
    "piece_horse",
@@ -46,6 +54,8 @@ static const char* piece_name[PIECE_COUNT] =
 static SDL_Surface* piece[PIECE_COUNT];
 static SDL_Surface* board_img;
 static SDL_Surface* screen;
+
+static Window* messageBox;
 static Player player[MAX_PLAYERS]; // the actual players
 static Property board[NUM_PROPERTIES] =
 {
@@ -94,6 +104,78 @@ static Property board[NUM_PROPERTIES] =
    { "Boardwalk",             0, 0, 0, 0, 0, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}}
 };
 
+Window* CreateMessageBox(const char* msg)
+{
+   Window* wnd = malloc(sizeof(Window));
+   if (!wnd)
+   {
+      fprintf(stderr, "Error creating window\n");
+      return NULL;
+   }
+   
+   // calculate windows size based on text & icons
+   wnd->size.x = 0;
+   wnd->size.y = 0;
+   wnd->size.w = 200;
+   wnd->size.h = 100;
+   
+   // create the drawing surface
+   wnd->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, wnd->size.w, wnd->size.h, 32, 0, 0, 0, 0);
+   if (!wnd->surface)
+   {
+      fprintf(stderr, "Error creating window surface\n");
+      free(wnd);
+      return NULL;
+   }
+
+   // draw the message on the box
+   SDL_FillRect(wnd->surface, &wnd->size, 0xFF00FF);
+
+   // set the location of the window on the screen
+   wnd->loc.x = 100;
+   wnd->loc.y = 100;
+   
+   // finally, set it active
+   wnd->active = 1;
+   
+   return wnd;
+}
+
+void DrawMessageBox(Window* wnd)
+{
+   SDL_BlitSurface(wnd->surface, NULL, screen, &wnd->loc);
+}
+
+void DestroyMessageBox(Window* wnd)
+{
+   SDL_FreeSurface(wnd->surface);
+   free(wnd);
+}
+
+static void OnKeyPressed(int key)
+{
+   switch(key)
+   {
+   case 'n':
+      messageBox = CreateMessageBox("key press");
+      break;
+   }
+}
+
+static void OnMouseClick(void)
+{
+   if (messageBox && messageBox->active)
+   {
+      DestroyMessageBox(messageBox);
+      messageBox = NULL;
+   }
+   else
+   {
+      player[0].location++;
+      player[0].location %= NUM_PROPERTIES;
+   }
+}
+
 // the main event loop (dispatcher) function
 static void Run(void)
 {
@@ -108,11 +190,11 @@ static void Run(void)
          switch (event.type)
          {
          case SDL_KEYDOWN:
+            OnKeyPressed(event.key.keysym.sym);
             break;
 
          case SDL_MOUSEBUTTONDOWN:
-            player[0].location++;
-            player[0].location %= NUM_PROPERTIES;
+            OnMouseClick(); // specify which button, up/down, etc
             break;
 
          case SDL_QUIT:
@@ -131,6 +213,9 @@ static void Run(void)
          if (player[i].active)
             SDL_BlitSurface(piece[player[i].piece], NULL, screen, &board[player[i].location].loc);
       }
+
+      if (messageBox && messageBox->active)
+         DrawMessageBox(messageBox);
 
 #if DEBUG
       // show property alignment
@@ -186,6 +271,12 @@ int main(int argc, char* args[])
    player[0].active = 1;
 
    Run();
+   
+   if (messageBox)
+   {
+      DestroyMessageBox(messageBox);
+      messageBox = NULL; // not completely necessary, but a good habit
+   }
 
    // free surfaces
    fprintf(stderr, "Unloading board_img\n");
