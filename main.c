@@ -211,7 +211,14 @@ static void Run(void)
       for (int i=0; i < MAX_PLAYERS; i++)
       {
          if (player[i].active)
-            SDL_BlitSurface(piece[player[i].piece], NULL, screen, &board[player[i].location].loc);
+         {
+            SDL_Rect pos;
+            pos.w = board[player[i].location].loc.w;
+            pos.h = board[player[i].location].loc.h;
+            pos.x = board[player[i].location].loc.x + ((pos.w - piece[player[i].piece]->w) >> 1); // without the brackets on the >> this doesn't calculate right
+            pos.y = board[player[i].location].loc.y + pos.h - piece[player[i].piece]->h;
+            SDL_BlitSurface(piece[player[i].piece], NULL, screen, &pos);
+         }
       }
 
       if (messageBox && messageBox->active)
