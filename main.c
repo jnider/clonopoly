@@ -20,6 +20,19 @@ enum
    PIECE_COUNT
 };
 
+typedef enum ButtonId
+{
+   BTN_OPTIONS,
+   BTN_COUNT
+} ButtonId;
+
+typedef enum ButtonState
+{
+   BUTTON_NORMAL,
+   BUTTON_PRESSED,
+   BUTTON_HOVER
+} ButtonState;
+
 typedef struct Player
 {
    int piece;              // which piece am I using?
@@ -35,6 +48,15 @@ typedef struct Property
    int rent[MAX_HOUSES];   // how much visitors have to pay
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
+
+typedef struct Button
+{
+   SDL_Surface* up;
+   SDL_Surface* down;
+   SDL_Surface* over;
+   ButtonState state;
+   SDL_Rect loc;           // boundaries of the button on the board
+} Button;
 
 typedef struct Window
 {
@@ -56,6 +78,8 @@ static SDL_Surface* board_img;
 static SDL_Surface* screen;
 
 static Window* messageBox;
+static Button button[BTN_COUNT];
+static Button* currentButton;
 static Player player[MAX_PLAYERS]; // the actual players
 static Property board[NUM_PROPERTIES] =
 {
@@ -162,8 +186,20 @@ static void OnKeyPressed(int key)
    }
 }
 
-static void OnMouseClick(void)
+static void OnMouseDown(int x, int y)
 {
+   for (int i=0; i < BTN_COUNT; i++)
+   {
+      if (x >= button[i].loc.x &&
+          x <= button[i].loc.x + button[i].loc.w &&
+          y >= button[i].loc.y &&
+          y <= button[i].loc.y + button[i].loc.y)
+         {
+            button[i].state = BUTTON_PRESSED;
+            currentButton = &button[i]; // save this for 'unpressing' later
+            break;
+         }
+   }
    if (messageBox && messageBox->active)
    {
       DestroyMessageBox(messageBox);
@@ -173,6 +209,15 @@ static void OnMouseClick(void)
    {
       player[0].location++;
       player[0].location %= NUM_PROPERTIES;
+   }
+}
+
+static void OnMouseUp(int x, int y)
+{
+   if (currentButton)
+   {
+      currentButton->state = BUTTON_NORMAL;
+      currentButton = NULL;
    }
 }
 
@@ -193,8 +238,15 @@ static void Run(void)
             OnKeyPressed(event.key.keysym.sym);
             break;
 
+         case SDL_MOUSEMOTION:
+            break;
+
          case SDL_MOUSEBUTTONDOWN:
-            OnMouseClick(); // specify which button, up/down, etc
+            OnMouseDown(event.button.x, event.button.y);
+            break;
+
+         case SDL_MOUSEBUTTONUP:
+            OnMouseUp(event.button.x, event.button.y);
             break;
 
          case SDL_QUIT:
@@ -206,6 +258,23 @@ static void Run(void)
 
       // the board_img
       SDL_BlitSurface(board_img, NULL, screen, NULL);
+
+      // draw the buttons
+      for (int i=0; i < BTN_COUNT; i++)
+      {
+         switch (button[i].state)
+         {
+         case BUTTON_PRESSED:
+            SDL_BlitSurface(button[i].down, NULL, screen, &button[i].loc);
+            break;
+         case BUTTON_NORMAL:
+            SDL_BlitSurface(button[i].up, NULL, screen, &button[i].loc);
+            break;
+         case BUTTON_HOVER:
+            SDL_BlitSurface(button[i].over, NULL, screen, &button[i].loc);
+            break;
+         }
+      }
 
       // draw the player icons
       for (int i=0; i < MAX_PLAYERS; i++)
@@ -274,6 +343,24 @@ int main(int argc, char* args[])
       }
    }
    
+   // load buttons
+   button[BTN_OPTIONS].up = IMG_Load("graphics/btn_options_1.png");
+   if (!button[BTN_OPTIONS].up)
+   {
+      fprintf(stderr, "Can't load btn_options_1.png\n");
+      return 2;
+   }
+   button[BTN_OPTIONS].down = IMG_Load("graphics/btn_options_2.png");
+   if (!button[BTN_OPTIONS].down)
+   {
+      fprintf(stderr, "Can't load btn_options_2.png\n");
+      return 2;
+   }
+   button[BTN_OPTIONS].loc.x = 0;
+   button[BTN_OPTIONS].loc.y = 708;
+   button[BTN_OPTIONS].loc.w = button[BTN_OPTIONS].up->w;
+   button[BTN_OPTIONS].loc.h = button[BTN_OPTIONS].up->h;
+
    // set up the player info
    player[0].active = 1;
 
