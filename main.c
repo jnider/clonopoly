@@ -1,6 +1,7 @@
 #include "SDL/SDL.h"
 #include "SDL/SDL_image.h"
 #include "SDL/SDL_gfxPrimitives.h"
+#include "SDL/SDL_ttf.h"
 
 #define MAX_PLAYERS 4
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
@@ -11,6 +12,7 @@
 #define PROPERTY_TOP_ROW 6
 #define PROPERTY_BOTTOM_ROW 604
 #define PROPERTY_LEFT_COLUMN 7
+#define MESSAGE_BOX_MARGIN 10
 
 // indices of all pieces
 enum
@@ -72,11 +74,13 @@ static const char* piece_name[PIECE_COUNT] =
    "piece_shoe"
 };
 
-// global list of available player pieces
+// SDL stuff
 static SDL_Surface* piece[PIECE_COUNT];
 static SDL_Surface* board_img;
 static SDL_Surface* screen;
+static TTF_Font* font;
 
+// game stuff
 static Window* messageBox;
 static Button button[BTN_COUNT];
 static Button* currentButton;
@@ -130,18 +134,34 @@ static Property board[NUM_PROPERTIES] =
 
 Window* CreateMessageBox(const char* msg)
 {
+   SDL_Surface* text;
    Window* wnd = malloc(sizeof(Window));
+   fprintf(stderr, "Creating messagebox\n");
    if (!wnd)
    {
       fprintf(stderr, "Error creating window\n");
       return NULL;
    }
    
+   // render text to determine its size
+   if (font)
+   {
+      SDL_Color textColor;
+      textColor.r = 0xFF;
+      textColor.g = 0;
+      textColor.b = 0;
+      text = TTF_RenderText_Solid(font, msg, textColor);
+   }
+
    // calculate windows size based on text & icons
    wnd->size.x = 0;
    wnd->size.y = 0;
-   wnd->size.w = 200;
-   wnd->size.h = 100;
+
+   if (text)
+   {
+      wnd->size.w = text->w + (MESSAGE_BOX_MARGIN * 2);
+      wnd->size.h = text->h + (MESSAGE_BOX_MARGIN * 2);
+   }
    
    // create the drawing surface
    wnd->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, wnd->size.w, wnd->size.h, 32, 0, 0, 0, 0);
@@ -151,13 +171,25 @@ Window* CreateMessageBox(const char* msg)
       free(wnd);
       return NULL;
    }
+   SDL_SetColorKey(wnd->surface, SDL_SRCCOLORKEY, 0);
 
-   // draw the message on the box
-   SDL_FillRect(wnd->surface, &wnd->size, 0xFF00FF);
+   // draw the message and the box
+   roundedBoxRGBA(wnd->surface, 0, 0, wnd->size.w, wnd->size.h, 10, 0xF0, 0, 0, 0x30);
+   if (text)
+   {
+      SDL_Rect loc;
+      loc.x = (wnd->size.w - text->w) / 2;
+      loc.y = (wnd->size.h - text->h) / 2;
+      loc.w = text->w;
+      loc.h = text->h;
+      SDL_BlitSurface(text, NULL, wnd->surface, &loc);
+   }
+   else
+      stringColor(wnd->surface, 0, (wnd->size.h+10)/2, msg, 0xFFF0F0FF);
 
    // set the location of the window on the screen
-   wnd->loc.x = 100;
-   wnd->loc.y = 100;
+   wnd->loc.x = (screen->w - wnd->size.w) / 2;
+   wnd->loc.y = (screen->h - wnd->size.h) / 2;
    
    // finally, set it active
    wnd->active = 1;
@@ -181,7 +213,8 @@ static void OnKeyPressed(int key)
    switch(key)
    {
    case 'n':
-      messageBox = CreateMessageBox("key press");
+      if (!messageBox)
+         messageBox = CreateMessageBox("key press");
       break;
    }
 }
@@ -306,6 +339,7 @@ static void Run(void)
 
 int main(int argc, char* args[])
 {
+   int returnCode = 0;
 
    //Start SDL 
    SDL_Init(SDL_INIT_EVERYTHING);
@@ -313,6 +347,22 @@ int main(int argc, char* args[])
    // Set up screen
    screen = SDL_SetVideoMode(1024, 800, 32, SDL_SWSURFACE | SDL_SRCCOLORKEY);
 
+   // TTF is 'true type fonts'
+   if (TTF_Init() != 0)
+   {
+      fprintf(stderr, "Error initializing TTF\n");
+      returnCode = 1;
+      goto TTFFail;
+   }
+   const char* fontName = "/usr/share/fonts/truetype/freefont/FreeSans.ttf";
+   font = TTF_OpenFont(fontName, 24);
+   if (!font)
+   {
+      fprintf(stderr, "Can't load font %s\n", fontName);
+      returnCode = 2;
+      goto TTFFail;
+   }
+   
    // Load board_img image
    fprintf(stderr, "Loading board\n");
    board_img = IMG_Load("graphics/board.png");
@@ -382,8 +432,12 @@ int main(int argc, char* args[])
       SDL_FreeSurface(piece[i]);
    }
 
+TTFFail:
+   // stop TTF
+   TTF_Quit();
+
    //Quit SDL
    SDL_Quit();
-   return 0;
+   return returnCode;
 }
 
