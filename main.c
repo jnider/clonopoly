@@ -2,6 +2,7 @@
 #include "SDL/SDL_image.h"
 #include "SDL/SDL_gfxPrimitives.h"
 #include "SDL/SDL_ttf.h"
+#include "ui.h"
 
 #define MAX_PLAYERS 4
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
@@ -12,13 +13,15 @@
 #define PROPERTY_TOP_ROW 6
 #define PROPERTY_BOTTOM_ROW 604
 #define PROPERTY_LEFT_COLUMN 7
-#define MESSAGE_BOX_MARGIN 10
+
 
 // indices of all pieces
 enum
 {
    PIECE_HORSE,
    PIECE_SHOE,
+   PIECE_DOG,
+   PIECE_BAG,
    PIECE_COUNT
 };
 
@@ -27,13 +30,6 @@ typedef enum ButtonId
    BTN_OPTIONS,
    BTN_COUNT
 } ButtonId;
-
-typedef enum ButtonState
-{
-   BUTTON_NORMAL,
-   BUTTON_PRESSED,
-   BUTTON_HOVER
-} ButtonState;
 
 typedef struct Player
 {
@@ -51,39 +47,18 @@ typedef struct Property
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
 
-typedef struct Button
-{
-   SDL_Surface* up;
-   SDL_Surface* down;
-   SDL_Surface* over;
-   ButtonState state;
-   SDL_Rect loc;           // boundaries of the button on the board
-} Button;
-
-typedef struct Window
-{
-   int active;             // is this window visible & active
-   SDL_Surface* surface;   // what to draw
-   SDL_Rect loc;           // boundaries of the window on the screen
-   SDL_Rect size;          // absolute size of the window (x=0,y=0,h>0,y>0)
-} Window;
-
 static const char* piece_name[PIECE_COUNT] =
 {
    "piece_horse",
-   "piece_shoe"
+   "piece_shoe",
+   "piece_dog",
+   "piece_bag"
 };
 
-// SDL stuff
-static SDL_Surface* piece[PIECE_COUNT];
-static SDL_Surface* board_img;
-static SDL_Surface* screen;
-static TTF_Font* font;
-
-// game stuff
-static Window* messageBox;
-static Button button[BTN_COUNT];
-static Button* currentButton;
+static MessageBox* messageBox;
+static Image* board_img;
+static Image* piece[PIECE_COUNT];
+static Button* button[BTN_COUNT];
 static Player player[MAX_PLAYERS]; // the actual players
 static Property board[NUM_PROPERTIES] =
 {
@@ -132,83 +107,7 @@ static Property board[NUM_PROPERTIES] =
    { "Boardwalk",             0, 0, 0, 0, 0, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}}
 };
 
-Window* CreateMessageBox(const char* msg)
-{
-   SDL_Surface* text;
-   Window* wnd = malloc(sizeof(Window));
-   fprintf(stderr, "Creating messagebox\n");
-   if (!wnd)
-   {
-      fprintf(stderr, "Error creating window\n");
-      return NULL;
-   }
-   
-   // render text to determine its size
-   if (font)
-   {
-      SDL_Color textColor;
-      textColor.r = 0xFF;
-      textColor.g = 0;
-      textColor.b = 0;
-      text = TTF_RenderText_Solid(font, msg, textColor);
-   }
-
-   // calculate windows size based on text & icons
-   wnd->size.x = 0;
-   wnd->size.y = 0;
-
-   if (text)
-   {
-      wnd->size.w = text->w + (MESSAGE_BOX_MARGIN * 2);
-      wnd->size.h = text->h + (MESSAGE_BOX_MARGIN * 2);
-   }
-   
-   // create the drawing surface
-   wnd->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, wnd->size.w, wnd->size.h, 32, 0, 0, 0, 0);
-   if (!wnd->surface)
-   {
-      fprintf(stderr, "Error creating window surface\n");
-      free(wnd);
-      return NULL;
-   }
-   SDL_SetColorKey(wnd->surface, SDL_SRCCOLORKEY, 0);
-
-   // draw the message and the box
-   roundedBoxRGBA(wnd->surface, 0, 0, wnd->size.w, wnd->size.h, 10, 0xF0, 0, 0, 0x30);
-   if (text)
-   {
-      SDL_Rect loc;
-      loc.x = (wnd->size.w - text->w) / 2;
-      loc.y = (wnd->size.h - text->h) / 2;
-      loc.w = text->w;
-      loc.h = text->h;
-      SDL_BlitSurface(text, NULL, wnd->surface, &loc);
-   }
-   else
-      stringColor(wnd->surface, 0, (wnd->size.h+10)/2, msg, 0xFFF0F0FF);
-
-   // set the location of the window on the screen
-   wnd->loc.x = (screen->w - wnd->size.w) / 2;
-   wnd->loc.y = (screen->h - wnd->size.h) / 2;
-   
-   // finally, set it active
-   wnd->active = 1;
-   
-   return wnd;
-}
-
-void DrawMessageBox(Window* wnd)
-{
-   SDL_BlitSurface(wnd->surface, NULL, screen, &wnd->loc);
-}
-
-void DestroyMessageBox(Window* wnd)
-{
-   SDL_FreeSurface(wnd->surface);
-   free(wnd);
-}
-
-static void OnKeyPressed(int key)
+void OnKeyPressed(int key)
 {
    switch(key)
    {
@@ -219,158 +118,22 @@ static void OnKeyPressed(int key)
    }
 }
 
-static void OnMouseDown(int x, int y)
+static void OnMouseClick(Ifel* i)
 {
-   for (int i=0; i < BTN_COUNT; i++)
-   {
-      if (x >= button[i].loc.x &&
-          x <= button[i].loc.x + button[i].loc.w &&
-          y >= button[i].loc.y &&
-          y <= button[i].loc.y + button[i].loc.y)
-         {
-            button[i].state = BUTTON_PRESSED;
-            currentButton = &button[i]; // save this for 'unpressing' later
-            break;
-         }
-   }
-   if (messageBox && messageBox->active)
-   {
-      DestroyMessageBox(messageBox);
-      messageBox = NULL;
-   }
-   else
-   {
-      player[0].location++;
-      player[0].location %= NUM_PROPERTIES;
-   }
-}
-
-static void OnMouseUp(int x, int y)
-{
-   if (currentButton)
-   {
-      currentButton->state = BUTTON_NORMAL;
-      currentButton = NULL;
-   }
-}
-
-// the main event loop (dispatcher) function
-static void Run(void)
-{
-   SDL_Event event;
-   SDL_Rect dest;
-
-   while (1)
-   {
-      // first handle any events
-      while (SDL_PollEvent(&event))
-      {
-         switch (event.type)
-         {
-         case SDL_KEYDOWN:
-            OnKeyPressed(event.key.keysym.sym);
-            break;
-
-         case SDL_MOUSEMOTION:
-            break;
-
-         case SDL_MOUSEBUTTONDOWN:
-            OnMouseDown(event.button.x, event.button.y);
-            break;
-
-         case SDL_MOUSEBUTTONUP:
-            OnMouseUp(event.button.x, event.button.y);
-            break;
-
-         case SDL_QUIT:
-            return;
-         }
-      }
-
-      // now redraw the screen
-
-      // the board_img
-      SDL_BlitSurface(board_img, NULL, screen, NULL);
-
-      // draw the buttons
-      for (int i=0; i < BTN_COUNT; i++)
-      {
-         switch (button[i].state)
-         {
-         case BUTTON_PRESSED:
-            SDL_BlitSurface(button[i].down, NULL, screen, &button[i].loc);
-            break;
-         case BUTTON_NORMAL:
-            SDL_BlitSurface(button[i].up, NULL, screen, &button[i].loc);
-            break;
-         case BUTTON_HOVER:
-            SDL_BlitSurface(button[i].over, NULL, screen, &button[i].loc);
-            break;
-         }
-      }
-
-      // draw the player icons
-      for (int i=0; i < MAX_PLAYERS; i++)
-      {
-         if (player[i].active)
-         {
-            SDL_Rect pos;
-            pos.w = board[player[i].location].loc.w;
-            pos.h = board[player[i].location].loc.h;
-            pos.x = board[player[i].location].loc.x + ((pos.w - piece[player[i].piece]->w) >> 1); // without the brackets on the >> this doesn't calculate right
-            pos.y = board[player[i].location].loc.y + pos.h - piece[player[i].piece]->h;
-            SDL_BlitSurface(piece[player[i].piece], NULL, screen, &pos);
-         }
-      }
-
-      if (messageBox && messageBox->active)
-         DrawMessageBox(messageBox);
-
-#if DEBUG
-      // show property alignment
-      for (int i=0; i < NUM_PROPERTIES; i++)
-         rectangleColor(screen, board[i].loc.x, board[i].loc.y,
-            board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
-#endif
-
-      SDL_Flip(screen);
-   }
+   fprintf(stderr, "OnMouseClick in %i\n", i->id);
 }
 
 int main(int argc, char* args[])
 {
    int returnCode = 0;
 
-   //Start SDL 
-   SDL_Init(SDL_INIT_EVERYTHING);
-
-   // Set up screen
-   screen = SDL_SetVideoMode(1024, 800, 32, SDL_SWSURFACE | SDL_SRCCOLORKEY);
-
-   // TTF is 'true type fonts'
-   if (TTF_Init() != 0)
+   if (InitUI() != 0)
    {
-      fprintf(stderr, "Error initializing TTF\n");
-      returnCode = 1;
-      goto TTFFail;
-   }
-   const char* fontName = "/usr/share/fonts/truetype/freefont/FreeSans.ttf";
-   font = TTF_OpenFont(fontName, 24);
-   if (!font)
-   {
-      fprintf(stderr, "Can't load font %s\n", fontName);
-      returnCode = 2;
-      goto TTFFail;
-   }
-   
-   // Load board_img image
-   fprintf(stderr, "Loading board\n");
-   board_img = IMG_Load("graphics/board.png");
-   if (!board_img)
-   {
-      fprintf(stderr, "Can't load board image\n");
+      fprintf(stderr, "Can't init UI\n");
       return 1;
    }
+
+   board_img = CreateImage("graphics/board.png");
 
    // load player piece images
    for (int i=0; i < PIECE_COUNT; i++)
@@ -378,7 +141,7 @@ int main(int argc, char* args[])
       char filename[64];
       fprintf(stderr, "Loading %s\n", piece_name[i]);
       sprintf(filename, "graphics/%s.png", piece_name[i]);
-      piece[i] = IMG_Load(filename);
+      piece[i] = CreateImage(filename);
       if (!piece[i])
       {
          fprintf(stderr, "Can't load %s\n", piece_name[i]);
@@ -387,49 +150,41 @@ int main(int argc, char* args[])
          for (int j=i-1; j >=0; j--)
          {
             fprintf(stderr, "Unloading %s\n", piece_name[j]);
-            SDL_FreeSurface(piece[j]);
+            DeleteImage(piece[j]);
          }
          return 1;
       }
    }
    
    // load buttons
-   button[BTN_OPTIONS].up = IMG_Load("graphics/btn_options_1.png");
-   if (!button[BTN_OPTIONS].up)
+   button[BTN_OPTIONS] = CreateButton(0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
+   if (!button[BTN_OPTIONS])
    {
-      fprintf(stderr, "Can't load btn_options_1.png\n");
+      fprintf(stderr, "Can't create btn_options\n");
       return 2;
    }
-   button[BTN_OPTIONS].down = IMG_Load("graphics/btn_options_2.png");
-   if (!button[BTN_OPTIONS].down)
-   {
-      fprintf(stderr, "Can't load btn_options_2.png\n");
-      return 2;
-   }
-   button[BTN_OPTIONS].loc.x = 0;
-   button[BTN_OPTIONS].loc.y = 708;
-   button[BTN_OPTIONS].loc.w = button[BTN_OPTIONS].up->w;
-   button[BTN_OPTIONS].loc.h = button[BTN_OPTIONS].up->h;
+   button[BTN_OPTIONS]->el.OnMouseClick = OnMouseClick;
 
    // set up the player info
    player[0].active = 1;
 
    Run();
-   
+
+   fprintf(stderr, "Cleanup\n");
    if (messageBox)
    {
-      DestroyMessageBox(messageBox);
+      DeleteMessageBox(messageBox);
       messageBox = NULL; // not completely necessary, but a good habit
    }
 
    // free surfaces
    fprintf(stderr, "Unloading board_img\n");
-   SDL_FreeSurface(board_img);
+   DeleteImage(board_img);
    for (int i=0; i < PIECE_COUNT; i++)
    {
       char filename[64];
       fprintf(stderr, "Unloading %s\n", piece_name[i]);
-      SDL_FreeSurface(piece[i]);
+      DeleteImage(piece[i]);
    }
 
 TTFFail:
@@ -438,6 +193,8 @@ TTFFail:
 
    //Quit SDL
    SDL_Quit();
+
+VideoModeFail:   
    return returnCode;
 }
 
