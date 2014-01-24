@@ -182,8 +182,6 @@ Image* CreateImage(int id, const char* bitmap)
       return NULL;
    }
 
-   fprintf(stderr, "Loaded\n");
-
    // set the internal options
    img->el.active = 1;
    img->el.id = id;
@@ -191,10 +189,8 @@ Image* CreateImage(int id, const char* bitmap)
    img->el.draw = DrawImage;
 
    // add it to the list of windows to draw
-   fprintf(stderr, "Adding ifel\n");
    AddIfel(NULL, (Ifel*)img);
 
-   fprintf(stderr, "CreateImage done\n");
    return img;
 }
 
@@ -288,6 +284,9 @@ img_up_fail:
 
 void DeleteButton(Button* btn)
 {
+   if (!btn)
+      return;
+
    RemoveIfel(NULL, (Ifel*)btn);
 
    SDL_FreeSurface(btn->up);
