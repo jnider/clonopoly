@@ -15,20 +15,21 @@
 #define PROPERTY_LEFT_COLUMN 7
 
 
-// indices of all pieces
+// ifel id's of all images
 enum
 {
-   PIECE_HORSE,
-   PIECE_SHOE,
-   PIECE_DOG,
-   PIECE_BAG,
-   PIECE_COUNT
+   ID_IMG_BOARD,
+   ID_IMG_HORSE,
+   ID_IMG_SHOE,
+   ID_IMG_DOG,
+   ID_IMG_BAG,
+   ID_IMG_COUNT
 };
 
 typedef enum ButtonId
 {
-   BTN_OPTIONS,
-   BTN_COUNT
+   ID_BTN_OPTIONS,
+   ID_BTN_COUNT
 } ButtonId;
 
 typedef struct Player
@@ -47,7 +48,7 @@ typedef struct Property
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
 
-static const char* piece_name[PIECE_COUNT] =
+static const char* piece_name[] =
 {
    "piece_horse",
    "piece_shoe",
@@ -56,9 +57,8 @@ static const char* piece_name[PIECE_COUNT] =
 };
 
 static MessageBox* messageBox;
-static Image* board_img;
-static Image* piece[PIECE_COUNT];
-static Button* button[BTN_COUNT];
+static Image* image[ID_IMG_COUNT];
+static Button* button[ID_BTN_COUNT];
 static Player player[MAX_PLAYERS]; // the actual players
 static Property board[NUM_PROPERTIES] =
 {
@@ -113,7 +113,7 @@ void OnKeyPressed(int key)
    {
    case 'n':
       if (!messageBox)
-         messageBox = CreateMessageBox("key press");
+         messageBox = CreateMessageBox(0, "key press");
       break;
    }
 }
@@ -131,37 +131,36 @@ int main(int argc, char* args[])
       return 1;
    }
 
-   board_img = CreateImage("graphics/board.png");
+   image[ID_IMG_BOARD] = CreateImage(ID_IMG_BOARD, "graphics/board.png");
 
    // load player piece images
-   for (int i=0; i < PIECE_COUNT; i++)
+   for (int i=ID_IMG_HORSE; i < ID_IMG_COUNT; i++)
    {
       char filename[64];
-      sprintf(filename, "graphics/%s.png", piece_name[i]);
-      piece[i] = CreateImage(filename);
-      if (!piece[i])
+      sprintf(filename, "graphics/%s.png", piece_name[i-ID_IMG_HORSE]);
+      fprintf(stderr, "loading image %i\n", i);
+      image[i] = CreateImage(i, filename);
+      if (!image[i])
       {
-         fprintf(stderr, "Can't load %s\n", piece_name[i]);
+         fprintf(stderr, "Can't load image\n");
 
          // unload all successfully loaded pieces
-         for (int j=i-1; j >=0; j--)
-         {
-            fprintf(stderr, "Unloading %s\n", piece_name[j]);
-            DeleteImage(piece[j]);
-         }
+         for (int j=i-1; j >=ID_IMG_HORSE; j--)
+            DeleteImage(image[j]);
+
          return 1;
       }
-      piece[i]->el.active = 0;
+      image[i]->el.active = 0;
    }
-   
+
    // load buttons
-   button[BTN_OPTIONS] = CreateButton(0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
-   if (!button[BTN_OPTIONS])
+   button[ID_BTN_OPTIONS] = CreateButton(ID_BTN_OPTIONS, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
+   if (!button[ID_BTN_OPTIONS])
    {
       fprintf(stderr, "Can't create btn_options\n");
       return 2;
    }
-   button[BTN_OPTIONS]->el.OnMouseClick = OnMouseClick;
+   button[ID_BTN_OPTIONS]->el.OnMouseClick = OnMouseClick;
 
    // set up the player info
    player[0].active = 1;
@@ -176,11 +175,10 @@ int main(int argc, char* args[])
    }
 
    // free UI elements
-   DeleteImage(board_img);
-   for (int i=0; i < PIECE_COUNT; i++)
-      DeleteImage(piece[i]);
+   for (int i=0; i < ID_IMG_COUNT; i++)
+      DeleteImage(image[i]);
 
-   for (int i=0; i < BTN_COUNT; i++)
+   for (int i=0; i < ID_BTN_COUNT; i++)
    {
       if (button[i])
          DeleteButton(button[i]);

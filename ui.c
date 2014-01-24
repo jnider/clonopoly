@@ -70,7 +70,7 @@ void DrawMessageBox(Ifel* i)
    SDL_BlitSurface(mb->surface, NULL, screen, &mb->el.loc);
 }
 
-MessageBox* CreateMessageBox(const char* msg)
+MessageBox* CreateMessageBox(int id, const char* msg)
 {
    SDL_Surface* text;
    MessageBox* mb = malloc(sizeof(MessageBox));
@@ -132,7 +132,8 @@ MessageBox* CreateMessageBox(const char* msg)
 
    // set the internal attributes
    mb->el.draw = DrawMessageBox;
-   mb->el.id = IFEL_MESSAGEBOX;
+   mb->el.id = id;
+   mb->el.type = IFEL_MESSAGEBOX;
    mb->el.active = 1;
    
    // add it to the list of windows to draw
@@ -159,9 +160,9 @@ void DrawImage(Ifel* i)
    SDL_BlitSurface(img->surface, NULL, screen, &img->el.loc);
 }
 
-Image* CreateImage(const char* bitmap)
+Image* CreateImage(int id, const char* bitmap)
 {
-   fprintf(stderr, "Loading %s\n", bitmap);
+   fprintf(stderr, "Creating image id %i\n", id);
 
    // create the object
    Image* img = malloc(sizeof(Image));
@@ -171,7 +172,6 @@ Image* CreateImage(const char* bitmap)
       return NULL;
    }
    memset(img, 0, sizeof(Image));
-   fprintf(stderr, "Created ifel %i\n", img);
 
    // load the image from disk
    img->surface = IMG_Load(bitmap);
@@ -186,7 +186,8 @@ Image* CreateImage(const char* bitmap)
 
    // set the internal options
    img->el.active = 1;
-   img->el.id = IFEL_IMAGE;
+   img->el.id = id;
+   img->el.type = IFEL_IMAGE;
    img->el.draw = DrawImage;
 
    // add it to the list of windows to draw
@@ -200,6 +201,9 @@ Image* CreateImage(const char* bitmap)
 void DeleteImage(Image* img)
 {
    fprintf(stderr, "Unloading image\n");
+   if (!img)
+      return;
+
    RemoveIfel(NULL, (Ifel*)img);
    SDL_FreeSurface(img->surface);
    free(img);
@@ -223,8 +227,9 @@ void DrawButton(Ifel* i)
    }
 }
 
-Button* CreateButton(int x, int y, const char* img_up, const char* img_down, const char* img_hover)
+Button* CreateButton(int id, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
 {
+   fprintf(stderr, "CreateButton\n");
    Button* button = malloc(sizeof(Button));
    if (!button)
    {
@@ -259,10 +264,11 @@ Button* CreateButton(int x, int y, const char* img_up, const char* img_down, con
    button->el.loc.y = 708;
    button->el.loc.w = button->up->w;
    button->el.loc.h = button->up->h;
-   button->el.id = IFEL_BUTTON;
 
-   // set the draw function
+   // set the internal variables
    button->el.draw = DrawButton;
+   button->el.id = id;
+   button->el.type = IFEL_BUTTON;
    button->el.active = 1;
    button->state = BUTTON_NORMAL;
 
@@ -343,7 +349,7 @@ int DestroyUI(void)
    el = GetFirstIfel(NULL, &i);
    while (el)
    {
-      fprintf(stderr, "ifel %i (type %i) was not released properly\n", (void*)el, el->id);
+      fprintf(stderr, "ifel %i (type %i) was not released properly\n", el->id, el->type);
       el = GetNextIfel(&i);
    }
    
@@ -389,7 +395,7 @@ void Run(void)
                    event.button.y >= el->loc.y &&
                    event.button.y <= el->loc.y + el->loc.y)
                {
-                  if (el->id == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON)
                   {
                      // if the button doesn't already have a button down state, mark it
                      if (((Button*)el)->state != BUTTON_PRESSED)
@@ -399,7 +405,7 @@ void Run(void)
                else
                {
                   // unmark all other elements
-                  if (el->id == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON)
                      ((Button*)el)->state = BUTTON_NORMAL;
                }
                el = GetNextIfel(&i);
@@ -417,7 +423,7 @@ void Run(void)
                    event.button.y <= el->loc.y + el->loc.y)
                {
                   currentEl = el; // remember where the button went down
-                  if (el->id == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON)
                   {
                      ((Button*)el)->state = BUTTON_PRESSED;
                   }
@@ -437,7 +443,7 @@ void Run(void)
                    event.button.y >= el->loc.y &&
                    event.button.y <= el->loc.y + el->loc.y)
                {
-                  if (el->id == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON)
                   {
                      ((Button*)el)->state = BUTTON_HOVER;
                   }

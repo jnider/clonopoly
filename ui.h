@@ -26,7 +26,8 @@ typedef void(*IfelOnMouseClickFn)(struct Ifel* el);
 
 typedef struct Ifel
 {
-   IfelType id;            // what kind of ifel is this
+   int id;
+   IfelType type;          // what kind of ifel is this
    int active;             // is this interface element visible & active
    //SDL_Surface* surface;   // what to draw
    SDL_Rect loc;           // relative boundaries on the owner ifel
@@ -68,13 +69,13 @@ void Run(void);
 int InitUI(void);
 int DestroyUI(void);
 
-Image* CreateImage(const char* bitmap);
+Image* CreateImage(int id, const char* bitmap);
 void DeleteImage(Image* img);
 
-Button* CreateButton(int x, int y, const char* img_up, const char* img_down, const char* img_hover);
+Button* CreateButton(int id, int x, int y, const char* img_up, const char* img_down, const char* img_hover);
 void DeleteButton(Button* btn);
 
-MessageBox* CreateMessageBox(const char* msg);
+MessageBox* CreateMessageBox(int id, const char* msg);
 void DeleteMessageBox(MessageBox* mb);
 
 #endif // _UI__H
