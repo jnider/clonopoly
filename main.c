@@ -15,22 +15,28 @@
 #define PROPERTY_LEFT_COLUMN 7
 
 
-// ifel id's of all images
+// ifel id's
 enum
 {
+   // images
+   ID_IMG_BASE=0,
    ID_IMG_BOARD,
    ID_IMG_HORSE,
    ID_IMG_SHOE,
    ID_IMG_DOG,
    ID_IMG_BAG,
-   ID_IMG_COUNT
+
+   // buttons
+   ID_BTN_BASE = 100,
+   ID_BTN_OPTIONS,
+
+   // message boxes
+   ID_MSGBOX_BASE = 200,
+   ID_MSGBOX1
 };
 
-typedef enum ButtonId
-{
-   ID_BTN_OPTIONS,
-   ID_BTN_COUNT
-} ButtonId;
+#define ID_IMG_COUNT (ID_IMG_BAG-ID_IMG_BASE)
+#define ID_BTN_COUNT (ID_BTN_OPTIONS - ID_BTN_BASE)
 
 typedef struct Player
 {
@@ -154,13 +160,13 @@ int main(int argc, char* args[])
    }
 
    // load buttons
-   button[ID_BTN_OPTIONS] = CreateButton(ID_BTN_OPTIONS, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
-   if (!button[ID_BTN_OPTIONS])
+   button[0] = CreateButton(ID_BTN_OPTIONS, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
+   if (!button[0])
    {
       fprintf(stderr, "Can't create btn_options\n");
       return 2;
    }
-   button[ID_BTN_OPTIONS]->el.OnMouseClick = OnMouseClick;
+   button[0]->el.OnMouseClick = OnMouseClick;
 
    // set up the player info
    player[0].active = 1;
@@ -175,13 +181,12 @@ int main(int argc, char* args[])
    }
 
    // free UI elements
-   for (int i=0; i < ID_IMG_COUNT; i++)
+   for (int i=ID_IMG_BASE; i < ID_IMG_BASE+ID_IMG_COUNT; i++)
       DeleteImage(image[i]);
 
-   for (int i=0; i < ID_BTN_COUNT; i++)
+   for (int i=ID_BTN_BASE; i < ID_BTN_BASE+ID_BTN_COUNT; i++)
    {
-      if (button[i])
-         DeleteButton(button[i]);
+      DeleteButton(button[i-ID_BTN_BASE]);
    }
 
    DestroyUI();
