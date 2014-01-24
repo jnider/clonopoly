@@ -4,25 +4,28 @@
 list* ListCreate(void)
 {
    list* head = malloc(sizeof(list));
+   if (!head)
+      return NULL;
+
    head->size = 0;
    head->first = NULL;
    head->last = NULL;
+   return head;
 }
 
 int ListAddNode(list* l, void* data)
 {
-   //fprintf(stderr, "ListAddNode\n");
    // create the node
    node* temp = malloc(sizeof(node));
    if (!temp)
       return 1;
+
    temp->next = NULL;
    temp->data = data;
 
    // now find the insertion point
    if (l->first == NULL)
    {
-      //fprintf(stderr, "inserting first node\n");
       l->first = temp;
    }
    else
