@@ -48,6 +48,7 @@ int ListRemoveNode(list* l, void* data)
    {
       l->first = ip->next;
       free(ip);
+      l->size--;
       return 0;
    }
 
@@ -58,6 +59,7 @@ int ListRemoveNode(list* l, void* data)
       if (ip->data == data)
       {
          prev->next = ip->next;
+         l->size--;
          free(ip);
          return 0;
       }
