@@ -44,7 +44,6 @@ static int RemoveIfel(Ifel* parent, Ifel* child)
 
 Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
 {
-   //fprintf(stderr, "GetFirstIfel\n");
    if (!parent)
    {
       *iter = ifels->first;
@@ -52,18 +51,10 @@ Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
          return NULL;
       return (Ifel*)ListGetData(ifels->first);
    }
-   /*
-   else
-   {
-      *iter = GetFirstNode(parent->ifels)->first;
-      return (Ifel*)ListGetData(parent->ifels->first);
-   }
-   */
 }
 
 Ifel* GetNextIfel(iterator* item)
 {
-   //fprintf(stderr, "GetNextIfel\n");
    node* n = *item;
    *item = n->next;
    if (n->next)
@@ -139,15 +130,14 @@ MessageBox* CreateMessageBox(const char* msg)
    mb->el.loc.x = (screen->w - mb->el.loc.w) / 2;
    mb->el.loc.y = (screen->h - mb->el.loc.h) / 2;
 
-   // set the draw function
+   // set the internal attributes
    mb->el.draw = DrawMessageBox;
+   mb->el.id = IFEL_MESSAGEBOX;
+   mb->el.active = 1;
    
    // add it to the list of windows to draw
    AddIfel(NULL, (Ifel*)mb);
 
-   // finally, set it active
-   mb->el.active = 1;
-   
    return mb;
 }
 
@@ -156,18 +146,6 @@ void DeleteMessageBox(MessageBox* mb)
    RemoveIfel(NULL, (Ifel*)mb);
    free(mb);
 }
-
-/*
-void DrawIfel(Ifel* i)
-{
-   switch(i->id)
-   {
-   case IFEL_IMAGE:
-   case IFEL_BUTTON:
-   case IFEL_MESSAGEBOX:
-   SDL_BlitSurface(wnd->surface, NULL, screen, &wnd->loc);
-}
-*/
 
 void DestroyMessageBox(MessageBox* mb)
 {
@@ -178,12 +156,13 @@ void DestroyMessageBox(MessageBox* mb)
 void DrawImage(Ifel* i)
 {
    Image* img = (Image*)i;
-   //fprintf(stderr, "DrawImage\n");
    SDL_BlitSurface(img->surface, NULL, screen, &img->el.loc);
 }
 
 Image* CreateImage(const char* bitmap)
 {
+   fprintf(stderr, "Loading %s\n", bitmap);
+
    // create the object
    Image* img = malloc(sizeof(Image));
    if (!img)
@@ -192,6 +171,7 @@ Image* CreateImage(const char* bitmap)
       return NULL;
    }
    memset(img, 0, sizeof(Image));
+   fprintf(stderr, "Created ifel %i\n", img);
 
    // load the image from disk
    img->surface = IMG_Load(bitmap);
@@ -202,19 +182,25 @@ Image* CreateImage(const char* bitmap)
       return NULL;
    }
 
+   fprintf(stderr, "Loaded\n");
+
    // set the internal options
+   img->el.active = 1;
    img->el.id = IFEL_IMAGE;
    img->el.draw = DrawImage;
 
    // add it to the list of windows to draw
+   fprintf(stderr, "Adding ifel\n");
    AddIfel(NULL, (Ifel*)img);
 
-   //fprintf(stderr, "CreateImage done\n");
+   fprintf(stderr, "CreateImage done\n");
    return img;
 }
 
 void DeleteImage(Image* img)
 {
+   fprintf(stderr, "Unloading image\n");
+   RemoveIfel(NULL, (Ifel*)img);
    SDL_FreeSurface(img->surface);
    free(img);
 }
@@ -277,7 +263,7 @@ Button* CreateButton(int x, int y, const char* img_up, const char* img_down, con
 
    // set the draw function
    button->el.draw = DrawButton;
-
+   button->el.active = 1;
    button->state = BUTTON_NORMAL;
 
    // add it to the list of windows to draw
@@ -292,6 +278,16 @@ img_down_fail:
 img_up_fail:
    free(button);
    return NULL;
+}
+
+void DeleteButton(Button* btn)
+{
+   RemoveIfel(NULL, (Ifel*)btn);
+
+   SDL_FreeSurface(btn->up);
+   SDL_FreeSurface(btn->down);
+   SDL_FreeSurface(btn->hover);
+   free(btn);
 }
 
 int InitUI(void)
@@ -335,6 +331,30 @@ int InitUI(void)
       
    return returnCode;
 }
+
+int DestroyUI(void)
+{
+   iterator i;
+   Ifel* el;
+
+   //fprintf(stderr, "DestroyUI\n");
+
+   // see if there are any ifels that weren't properly released
+   el = GetFirstIfel(NULL, &i);
+   while (el)
+   {
+      fprintf(stderr, "ifel %i (type %i) was not released properly\n", (void*)el, el->id);
+      el = GetNextIfel(&i);
+   }
+   
+   // stop TTF
+   TTF_Quit();
+
+   //Quit SDL
+   SDL_Quit();
+
+}
+
 
 // the main event loop (dispatcher) function
 void Run(void)
@@ -443,25 +463,10 @@ void Run(void)
       Ifel* el = GetFirstIfel(NULL, &i);
       while(el)
       {
-         el->draw(el);
+         if (el->active)
+            el->draw(el);
          el = GetNextIfel(&i);
       }
-
-      /*
-      // draw the player icons
-      for (int i=0; i < MAX_PLAYERS; i++)
-      {
-         if (player[i].active)
-         {
-            SDL_Rect pos;
-            pos.w = board[player[i].location].loc.w;
-            pos.h = board[player[i].location].loc.h;
-            pos.x = board[player[i].location].loc.x + ((pos.w - piece[player[i].piece]->w) >> 1); // without the brackets on the >> this doesn't calculate right
-            pos.y = board[player[i].location].loc.y + pos.h - piece[player[i].piece]->h;
-            SDL_BlitSurface(piece[player[i].piece], NULL, screen, &pos);
-         }
-      }
-      */
 
 #if DEBUG
       // show property alignment

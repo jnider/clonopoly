@@ -66,6 +66,7 @@ typedef struct MessageBox
 
 void Run(void);
 int InitUI(void);
+int DestroyUI(void);
 
 Image* CreateImage(const char* bitmap);
 void DeleteImage(Image* img);

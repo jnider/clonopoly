@@ -125,8 +125,6 @@ static void OnMouseClick(Ifel* i)
 
 int main(int argc, char* args[])
 {
-   int returnCode = 0;
-
    if (InitUI() != 0)
    {
       fprintf(stderr, "Can't init UI\n");
@@ -139,7 +137,6 @@ int main(int argc, char* args[])
    for (int i=0; i < PIECE_COUNT; i++)
    {
       char filename[64];
-      fprintf(stderr, "Loading %s\n", piece_name[i]);
       sprintf(filename, "graphics/%s.png", piece_name[i]);
       piece[i] = CreateImage(filename);
       if (!piece[i])
@@ -154,6 +151,7 @@ int main(int argc, char* args[])
          }
          return 1;
       }
+      piece[i]->el.active = 0;
    }
    
    // load buttons
@@ -177,24 +175,19 @@ int main(int argc, char* args[])
       messageBox = NULL; // not completely necessary, but a good habit
    }
 
-   // free surfaces
-   fprintf(stderr, "Unloading board_img\n");
+   // free UI elements
    DeleteImage(board_img);
    for (int i=0; i < PIECE_COUNT; i++)
-   {
-      char filename[64];
-      fprintf(stderr, "Unloading %s\n", piece_name[i]);
       DeleteImage(piece[i]);
+
+   for (int i=0; i < BTN_COUNT; i++)
+   {
+      if (button[i])
+         DeleteButton(button[i]);
    }
 
-TTFFail:
-   // stop TTF
-   TTF_Quit();
+   DestroyUI();
 
-   //Quit SDL
-   SDL_Quit();
-
-VideoModeFail:   
-   return returnCode;
+   return 0;
 }
 
