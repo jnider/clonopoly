@@ -20,7 +20,6 @@ static int AddIfel(Ifel* parent, Ifel* child)
    if (!parent)
    {
       // top level window
-      fprintf(stderr, "no parent: %i\n", ifels->size);
       ListAddNode(ifels, child);
    }
    else
@@ -75,7 +74,6 @@ Ifel* CreateIfel(int id, Ifel* parent, IfelDrawFn draw)
    Ifel* i = malloc(sizeof(Ifel));
    i->id = id;
    i->type = IFEL_MESSAGEBOX;
-   //i->active = 1;
    i->draw = draw;
    
    // add it to the list of windows to draw
@@ -431,7 +429,7 @@ void Run(void)
             break;
 
          case SDL_MOUSEBUTTONDOWN:
-            fprintf(stderr, "mouse down\n");
+            //fprintf(stderr, "mouse down\n");
             el = GetFirstIfel(NULL, &i);
             while (el)
             {
@@ -452,7 +450,7 @@ void Run(void)
             break;
 
          case SDL_MOUSEBUTTONUP:
-            fprintf(stderr, "mouse up\n");
+            //fprintf(stderr, "mouse up\n");
             el = GetFirstIfel(NULL, &i);
             while (el)
             {

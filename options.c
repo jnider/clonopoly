@@ -30,7 +30,6 @@ void ShowOptionsMenu(void)
       menu = malloc(sizeof(struct OptionsMenu));
       if (!menu)
          return;
-      fprintf(stderr, "menu created %i\n", menu); 
 
       // create the surface
       menu->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, 100, 200, 32, 0, 0, 0, 0);
@@ -41,18 +40,14 @@ void ShowOptionsMenu(void)
          menu = NULL;
          return;
       }
-      fprintf(stderr, "options menu surface @ %i\n", menu->surface);
 
       // create the ifel
       menu->i = CreateIfel(ID_MENU_OPTIONS, NULL, DrawOptionsMenu);
       menu->i->data = menu;
-      fprintf(stderr, "ifel created 0x%x\n", menu->i); 
-
    }
 
    // set it active
    menu->i->active = 1;
-   //fprintf(stderr, "ifel set active\n"); 
 }
 
 void DeleteOptionsMenu(void)
