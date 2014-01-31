@@ -15,6 +15,7 @@ list* ListCreate(void)
 
 int ListAddNode(list* l, void* data)
 {
+   fprintf(stderr, "ListAddNode\n");
    // create the node
    node* temp = malloc(sizeof(node));
    if (!temp)
@@ -23,16 +24,16 @@ int ListAddNode(list* l, void* data)
    temp->next = NULL;
    temp->data = data;
 
-   // now find the insertion point
+   // now find the end of the list
    if (l->first == NULL)
-   {
       l->first = temp;
-   }
    else
    {
       node* ip = l->first;
       while (ip->next)
+      {
          ip = ip->next;
+      }
       ip->next = temp;
    }
 
@@ -73,6 +74,7 @@ int ListRemoveNode(list* l, void* data)
 
 void* ListGetData(node* n)
 {
+   //fprintf(stderr, "ListGetData %i\n", n);
    return n->data;
 }
 

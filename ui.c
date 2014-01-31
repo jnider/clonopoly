@@ -16,9 +16,11 @@ static list* ifels;
 
 static int AddIfel(Ifel* parent, Ifel* child)
 {
+   fprintf(stderr, "AddIfel\n");
    if (!parent)
    {
       // top level window
+      fprintf(stderr, "no parent: %i\n", ifels->size);
       ListAddNode(ifels, child);
    }
    else
@@ -29,7 +31,7 @@ static int AddIfel(Ifel* parent, Ifel* child)
    return 0;
 }
 
-static int RemoveIfel(Ifel* parent, Ifel* child)
+int RemoveIfel(Ifel* parent, Ifel* child)
 {
    list* l;
 
@@ -44,6 +46,7 @@ static int RemoveIfel(Ifel* parent, Ifel* child)
 
 Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
 {
+   //fprintf(stderr, "GetFirstIfel\n");
    if (!parent)
    {
       *iter = ifels->first;
@@ -51,10 +54,13 @@ Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
          return NULL;
       return (Ifel*)ListGetData(ifels->first);
    }
+   fprintf(stderr, "GetFirstIfel with parent\n");
+   return NULL;
 }
 
 Ifel* GetNextIfel(iterator* item)
 {
+   //fprintf(stderr, "GetNextIfel\n");
    node* n = *item;
    *item = n->next;
    if (n->next)
@@ -63,16 +69,35 @@ Ifel* GetNextIfel(iterator* item)
       return NULL;
 }
 
-void DrawMessageBox(Ifel* i)
+Ifel* CreateIfel(int id, Ifel* parent, IfelDrawFn draw)
+{
+   fprintf(stderr, "CreateIfel\n");
+   Ifel* i = malloc(sizeof(Ifel));
+   i->id = id;
+   i->type = IFEL_MESSAGEBOX;
+   //i->active = 1;
+   i->draw = draw;
+   
+   // add it to the list of windows to draw
+   AddIfel(parent, i);
+   return i;
+}
+
+void DrawMessageBox(SDL_Surface* s, Ifel* i)
 {
    MessageBox* mb = (MessageBox*)i;
    fprintf(stderr, "DrawMessageBox\n");
-   SDL_BlitSurface(mb->surface, NULL, screen, &mb->el.loc);
+   SDL_BlitSurface(mb->surface, NULL, s, &mb->el.loc);
 }
 
 MessageBox* CreateMessageBox(int id, const char* msg)
 {
    SDL_Surface* text;
+   if (!font)
+   {
+      return NULL;
+   }
+
    MessageBox* mb = malloc(sizeof(MessageBox));
    fprintf(stderr, "Creating messagebox\n");
    if (!mb)
@@ -83,24 +108,18 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    memset(mb, 0, sizeof(MessageBox));
    
    // render text to determine its size
-   if (font)
-   {
-      SDL_Color textColor;
-      textColor.r = 0xFF;
-      textColor.g = 0;
-      textColor.b = 0;
-      text = TTF_RenderText_Solid(font, msg, textColor);
-   }
+   SDL_Color textColor;
+   textColor.r = 0xFF;
+   textColor.g = 0;
+   textColor.b = 0;
+   text = TTF_RenderText_Solid(font, msg, textColor);
 
    // calculate windows size based on text & icons
    mb->el.loc.x = 0;
    mb->el.loc.y = 0;
 
-   if (text)
-   {
-      mb->el.loc.w = text->w + (MESSAGE_BOX_MARGIN * 2);
-      mb->el.loc.h = text->h + (MESSAGE_BOX_MARGIN * 2);
-   }
+   mb->el.loc.w = text->w + (MESSAGE_BOX_MARGIN * 2);
+   mb->el.loc.h = text->h + (MESSAGE_BOX_MARGIN * 2);
    
    // create the drawing surface
    mb->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, mb->el.loc.w, mb->el.loc.h, 32, 0, 0, 0, 0);
@@ -154,13 +173,13 @@ void DestroyMessageBox(MessageBox* mb)
    free(mb);
 }
 
-void DrawImage(Ifel* i)
+void DrawImage(SDL_Surface* s, Ifel* i)
 {
    Image* img = (Image*)i;
-   SDL_BlitSurface(img->surface, NULL, screen, &img->el.loc);
+   SDL_BlitSurface(img->surface, NULL, s, &img->el.loc);
 }
 
-Image* CreateImage(int id, const char* bitmap)
+Image* CreateImage(int id, Ifel* parent, const char* bitmap)
 {
    fprintf(stderr, "Creating image id %i\n", id);
 
@@ -189,7 +208,7 @@ Image* CreateImage(int id, const char* bitmap)
    img->el.draw = DrawImage;
 
    // add it to the list of windows to draw
-   AddIfel(NULL, (Ifel*)img);
+   AddIfel(parent, (Ifel*)img);
 
    return img;
 }
@@ -205,7 +224,7 @@ void DeleteImage(Image* img)
    free(img);
 }
 
-void DrawButton(Ifel* i)
+void DrawButton(SDL_Surface* s, Ifel* i)
 {
    Button* btn = (Button*)i;
    //fprintf(stderr, "DrawButton\n");
@@ -358,6 +377,7 @@ int DestroyUI(void)
    //Quit SDL
    SDL_Quit();
 
+   return 0;
 }
 
 
@@ -365,7 +385,6 @@ int DestroyUI(void)
 void Run(void)
 {
    SDL_Event event;
-   SDL_Rect dest;
    iterator i;
    Ifel* el;
 
@@ -412,7 +431,7 @@ void Run(void)
             break;
 
          case SDL_MOUSEBUTTONDOWN:
-            //fprintf(stderr, "mouse down\n");
+            fprintf(stderr, "mouse down\n");
             el = GetFirstIfel(NULL, &i);
             while (el)
             {
@@ -433,7 +452,7 @@ void Run(void)
             break;
 
          case SDL_MOUSEBUTTONUP:
-            //fprintf(stderr, "mouse up\n");
+            fprintf(stderr, "mouse up\n");
             el = GetFirstIfel(NULL, &i);
             while (el)
             {
@@ -465,11 +484,14 @@ void Run(void)
       }
 
       // now redraw the screen by running through all Ifels in DFS manner
+      //fprintf(stderr, "drawing ifels\n");
       Ifel* el = GetFirstIfel(NULL, &i);
       while(el)
       {
-         if (el->active)
-            el->draw(el);
+         if (el->active && el->draw)
+         {
+            el->draw(screen, el);
+         }
          el = GetNextIfel(&i);
       }
 

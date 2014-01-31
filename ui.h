@@ -21,7 +21,7 @@ typedef enum ButtonState
 } ButtonState;
 
 struct Ifel;
-typedef void(*IfelDrawFn)(struct Ifel* el);
+typedef void(*IfelDrawFn)(SDL_Surface* screen, struct Ifel* el);
 typedef void(*IfelOnMouseClickFn)(struct Ifel* el);
 
 typedef struct Ifel
@@ -29,9 +29,8 @@ typedef struct Ifel
    int id;
    IfelType type;          // what kind of ifel is this
    int active;             // is this interface element visible & active
-   //SDL_Surface* surface;   // what to draw
    SDL_Rect loc;           // relative boundaries on the owner ifel
-   //SDL_Rect size;          // absolute size of the element (x=0,y=0,h>0,y>0)
+   void* data;             // can keep a pointer to user-defined data here
    list ifels;             // each element may contain other elements
 
    // internal callbacks
@@ -69,7 +68,10 @@ void Run(void);
 int InitUI(void);
 int DestroyUI(void);
 
-Image* CreateImage(int id, const char* bitmap);
+Ifel* CreateIfel(int id, Ifel* parent, IfelDrawFn draw);
+int RemoveIfel(Ifel* parent, Ifel* child);
+
+Image* CreateImage(int id, Ifel* parent, const char* bitmap);
 void DeleteImage(Image* img);
 
 Button* CreateButton(int id, int x, int y, const char* img_up, const char* img_down, const char* img_hover);
