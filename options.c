@@ -3,23 +3,29 @@
 #include "options.h"
 #include "SDL/SDL_gfxPrimitives.h"
 
+#define WIDTH 300
+#define HEIGHT 200
+
 struct OptionsMenu
 {
-   Ifel* i;
+   Ifel* ifel;
    SDL_Surface* surface;
+   Button* cancelBtn;
 };
 
 // our 'singleton'
 static struct OptionsMenu* menu;
 
-static void DrawOptionsMenu(SDL_Surface* s, Ifel* i)
+static void DrawOptionsMenu(Ifel* i)
 {
    struct OptionsMenu* menu = (struct OptionsMenu*)i->data;
 
-   // draw it
-   roundedBoxRGBA(menu->surface, 0, 0, 100, 200, 10, 0, 255, 0, 100);
+   //fprintf(stderr, "DrawOptionsMenu\n");
 
-   SDL_BlitSurface(menu->surface, NULL, s, NULL);
+   // draw it
+   roundedBoxRGBA(menu->surface, 0, 0, WIDTH, HEIGHT, 10, 0, 255, 0, 100);
+
+   SDL_BlitSurface(menu->surface, NULL, i->surface, NULL);
 }
 
 void ShowOptionsMenu(void)
@@ -32,7 +38,7 @@ void ShowOptionsMenu(void)
          return;
 
       // create the surface
-      menu->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, 100, 200, 32, 0, 0, 0, 0);
+      menu->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, WIDTH, HEIGHT, 32, 0, 0, 0, 0);
       if (!menu->surface)
       {
          fprintf(stderr, "Error creating options menu surface\n");
@@ -42,19 +48,34 @@ void ShowOptionsMenu(void)
       }
 
       // create the ifel
-      menu->i = CreateIfel(ID_MENU_OPTIONS, NULL, DrawOptionsMenu);
-      menu->i->data = menu;
+      menu->ifel = malloc(sizeof(struct Ifel));
+      if (!menu->ifel)
+      {
+         free(menu);
+         SDL_FreeSurface(menu->surface);
+         return;
+      }
+      menu->ifel->loc.x = 100;
+      menu->ifel->loc.y = 100;
+      menu->ifel->loc.w = WIDTH;
+      menu->ifel->loc.h = HEIGHT;
+      CreateIfel(ID_MENU_OPTIONS, NULL, menu->ifel, IFEL_CUSTOM, DrawOptionsMenu);
+      menu->ifel->data = menu;
+
+      // add a cancel button 
+      menu->cancelBtn = CreateButton(ID_BTN_CANCEL, menu->ifel, 50, 60, "graphics/cancel1.png", "graphics/cancel2.png", "graphics/cancel3.png");
    }
 
    // set it active
-   menu->i->active = 1;
+   menu->ifel->active = 1;
 }
 
 void DeleteOptionsMenu(void)
 {
    if (menu)
    {
-      RemoveIfel(NULL, menu->i);
+      DeleteIfel(NULL, menu->ifel);
+      free(menu->ifel);
       free(menu);
       menu = NULL;
    }

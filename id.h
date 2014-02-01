@@ -15,6 +15,7 @@ enum
    // buttons
    ID_BTN_BASE = 100,
    ID_BTN_OPTIONS,
+   ID_BTN_CANCEL,
 
    // message boxes
    ID_MSGBOX_BASE = 200,

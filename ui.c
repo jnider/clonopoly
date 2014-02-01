@@ -14,47 +14,49 @@ static SDL_Surface* screen;
 static TTF_Font* font;
 static list* ifels;
 
-static int AddIfel(Ifel* parent, Ifel* child)
-{
-   fprintf(stderr, "AddIfel\n");
-   if (!parent)
-   {
-      // top level window
-      ListAddNode(ifels, child);
-   }
-   else
-   {
-      ListAddNode(&parent->ifels, child);
-   }
-
-   return 0;
-}
-
-int RemoveIfel(Ifel* parent, Ifel* child)
+int DeleteIfel(Ifel* parent, Ifel* child)
 {
    list* l;
+   iterator iter;
 
+   // first delete all children
+   Ifel* el = GetFirstIfel(NULL, &iter);
+   while(el)
+   {
+      //el->delete(el); - JKN must add this
+      el = GetNextIfel(&iter);
+   }
+
+   // now delete self
    if (!parent)
       l = ifels;
    else
-      l = &parent->ifels;
+      l = parent->ifels;
 
    ListRemoveNode(l, child);
+   SDL_FreeSurface(child->surface);
+   child->surface = NULL;
+   
    return 0;
 }
 
+// set the iterator and return the first ifel's data
 Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
 {
    //fprintf(stderr, "GetFirstIfel\n");
    if (!parent)
    {
-      *iter = ifels->first;
       if (ifels->size == 0)
          return NULL;
-      return (Ifel*)ListGetData(ifels->first);
+      *iter = ifels->first;
    }
-   fprintf(stderr, "GetFirstIfel with parent\n");
-   return NULL;
+   else
+   {
+      if (parent->ifels->size == 0)
+         return NULL;
+      *iter = parent->ifels->first;
+   }
+   return (Ifel*)ListGetData(*iter);
 }
 
 Ifel* GetNextIfel(iterator* item)
@@ -68,24 +70,54 @@ Ifel* GetNextIfel(iterator* item)
       return NULL;
 }
 
-Ifel* CreateIfel(int id, Ifel* parent, IfelDrawFn draw)
+Ifel* CreateIfel(int id, Ifel* parent, Ifel* me, IfelType type, IfelDrawFn draw)
 {
-   fprintf(stderr, "CreateIfel\n");
-   Ifel* i = malloc(sizeof(Ifel));
-   i->id = id;
-   i->type = IFEL_MESSAGEBOX;
-   i->draw = draw;
+   //fprintf(stderr, "CreateIfel\n");
+   me->id = id;
+   me->type = type;
+   me->draw = draw;
+   me->ifels = ListCreate();
    
+   // create the drawing surface
+   me->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, me->loc.w, me->loc.h, 32, 0, 0, 0, 0);
+   if (!me->surface)
+   {
+      fprintf(stderr, "Error creating window surface\n");
+      return NULL;
+   }
+   SDL_SetColorKey(me->surface, SDL_SRCCOLORKEY, 0);
+
    // add it to the list of windows to draw
-   AddIfel(parent, i);
-   return i;
+   if (!parent)
+      ListAddNode(ifels, me);
+   else
+      ListAddNode(parent->ifels, me);
+
+   return me;
 }
 
-void DrawMessageBox(SDL_Surface* s, Ifel* i)
+void DrawIfelChildren(Ifel* i)
 {
-   MessageBox* mb = (MessageBox*)i;
+   iterator iter;
+   Ifel* el = GetFirstIfel(i, &iter);
+   while(el)
+   {
+      if (el->active && el->draw)
+      {
+            el->draw(el);
+            DrawIfelChildren(el);
+            SDL_BlitSurface(el->surface, NULL, i->surface, &el->loc);
+      }
+      el = GetNextIfel(&iter);
+   }
+}
+
+void DrawMessageBox(Ifel* i)
+{
+   //MessageBox* mb = (MessageBox*)i;
    fprintf(stderr, "DrawMessageBox\n");
-   SDL_BlitSurface(mb->surface, NULL, s, &mb->el.loc);
+
+   // render the text to the surface
 }
 
 MessageBox* CreateMessageBox(int id, const char* msg)
@@ -105,6 +137,7 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    }
    memset(mb, 0, sizeof(MessageBox));
    
+
    // render text to determine its size
    SDL_Color textColor;
    textColor.r = 0xFF;
@@ -119,18 +152,8 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    mb->el.loc.w = text->w + (MESSAGE_BOX_MARGIN * 2);
    mb->el.loc.h = text->h + (MESSAGE_BOX_MARGIN * 2);
    
-   // create the drawing surface
-   mb->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, mb->el.loc.w, mb->el.loc.h, 32, 0, 0, 0, 0);
-   if (!mb->surface)
-   {
-      fprintf(stderr, "Error creating window surface\n");
-      free(mb);
-      return NULL;
-   }
-   SDL_SetColorKey(mb->surface, SDL_SRCCOLORKEY, 0);
-
    // draw the message and the box
-   roundedBoxRGBA(mb->surface, 0, 0, mb->el.loc.w, mb->el.loc.h, 10, 0xF0, 0, 0, 0x30);
+   roundedBoxRGBA(mb->el.surface, 0, 0, mb->el.loc.w, mb->el.loc.h, 10, 0xF0, 0, 0, 0x30);
    if (text)
    {
       SDL_Rect loc;
@@ -138,7 +161,7 @@ MessageBox* CreateMessageBox(int id, const char* msg)
       loc.y = (mb->el.loc.h - text->h) / 2;
       loc.w = text->w;
       loc.h = text->h;
-      SDL_BlitSurface(text, NULL, mb->surface, &loc);
+      SDL_BlitSurface(text, NULL, mb->el.surface, &loc);
       SDL_FreeSurface(text);
    }
       //stringColor(mb->surface, 0, (wnd->size.h+10)/2, msg, 0xFFF0F0FF);
@@ -147,39 +170,28 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    mb->el.loc.x = (screen->w - mb->el.loc.w) / 2;
    mb->el.loc.y = (screen->h - mb->el.loc.h) / 2;
 
-   // set the internal attributes
-   mb->el.draw = DrawMessageBox;
-   mb->el.id = id;
-   mb->el.type = IFEL_MESSAGEBOX;
+   // add it to the list of windows to draw
+   CreateIfel(id, NULL, (Ifel*)mb, IFEL_MESSAGEBOX, DrawMessageBox);
    mb->el.active = 1;
    
-   // add it to the list of windows to draw
-   AddIfel(NULL, (Ifel*)mb);
-
    return mb;
 }
 
 void DeleteMessageBox(MessageBox* mb)
 {
-   RemoveIfel(NULL, (Ifel*)mb);
+   DeleteIfel(NULL, (Ifel*)mb);
    free(mb);
 }
 
-void DestroyMessageBox(MessageBox* mb)
-{
-   SDL_FreeSurface(mb->surface);
-   free(mb);
-}
-
-void DrawImage(SDL_Surface* s, Ifel* i)
+void DrawImage(Ifel* i)
 {
    Image* img = (Image*)i;
-   SDL_BlitSurface(img->surface, NULL, s, &img->el.loc);
+   SDL_BlitSurface(img->surface, NULL, i->surface, NULL);
 }
 
 Image* CreateImage(int id, Ifel* parent, const char* bitmap)
 {
-   fprintf(stderr, "Creating image id %i\n", id);
+   //fprintf(stderr, "Creating image id %i\n", id);
 
    // create the object
    Image* img = malloc(sizeof(Image));
@@ -199,14 +211,14 @@ Image* CreateImage(int id, Ifel* parent, const char* bitmap)
       return NULL;
    }
 
-   // set the internal options
-   img->el.active = 1;
-   img->el.id = id;
-   img->el.type = IFEL_IMAGE;
-   img->el.draw = DrawImage;
+   img->el.loc.x = 0;
+   img->el.loc.y = 0;
+   img->el.loc.w = img->surface->w;
+   img->el.loc.h = img->surface->h;
 
    // add it to the list of windows to draw
-   AddIfel(parent, (Ifel*)img);
+   CreateIfel(id, parent, &img->el, IFEL_IMAGE, DrawImage);
+   img->el.active = 1;
 
    return img;
 }
@@ -217,32 +229,32 @@ void DeleteImage(Image* img)
    if (!img)
       return;
 
-   RemoveIfel(NULL, (Ifel*)img);
+   DeleteIfel(NULL, (Ifel*)img);
    SDL_FreeSurface(img->surface);
    free(img);
 }
 
-void DrawButton(SDL_Surface* s, Ifel* i)
+void DrawButton(Ifel* i)
 {
    Button* btn = (Button*)i;
    //fprintf(stderr, "DrawButton\n");
    switch(btn->state)
    {
    case BUTTON_NORMAL:
-      SDL_BlitSurface(btn->up, NULL, screen, &btn->el.loc);
+      SDL_BlitSurface(btn->up, NULL, i->surface, NULL);
       break;
    case BUTTON_PRESSED:
-      SDL_BlitSurface(btn->down, NULL, screen, &btn->el.loc);
+      SDL_BlitSurface(btn->down, NULL, i->surface, NULL);
       break;
    case BUTTON_HOVER:
-      SDL_BlitSurface(btn->hover, NULL, screen, &btn->el.loc);
+      SDL_BlitSurface(btn->hover, NULL, i->surface, NULL);
       break;
    }
 }
 
-Button* CreateButton(int id, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
+Button* CreateButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
 {
-   fprintf(stderr, "CreateButton\n");
+   //fprintf(stderr, "CreateButton\n");
    Button* button = malloc(sizeof(Button));
    if (!button)
    {
@@ -252,44 +264,38 @@ Button* CreateButton(int id, int x, int y, const char* img_up, const char* img_d
 
    memset(button, 0, sizeof(Button));
 
-   fprintf(stderr, "Loading %s\n", img_up);
    button->up = IMG_Load(img_up);
    if (!button->up)
    {
       fprintf(stderr, "Can't load image %s\n", img_up);
       goto img_up_fail;
    }
-   fprintf(stderr, "Loading %s\n", img_down);
    button->down = IMG_Load(img_down);
    if (!button->down)
    {
       fprintf(stderr, "Can't load image %s\n", img_down);
       goto img_down_fail;
    }
-   fprintf(stderr, "Loading %s\n", img_hover);
    button->hover = IMG_Load(img_hover);
    if (!button->hover)
    {
       fprintf(stderr, "Can't load image %s\n", img_hover);
       goto img_hover_fail;
    }
-   button->el.loc.x = 0;
-   button->el.loc.y = 708;
+   // set the internal variables
+   button->state = BUTTON_NORMAL;
+   button->el.loc.x = x;
+   button->el.loc.y = y;
    button->el.loc.w = button->up->w;
    button->el.loc.h = button->up->h;
 
-   // set the internal variables
-   button->el.draw = DrawButton;
-   button->el.id = id;
-   button->el.type = IFEL_BUTTON;
-   button->el.active = 1;
-   button->state = BUTTON_NORMAL;
-
    // add it to the list of windows to draw
-   AddIfel(NULL, (Ifel*)button);
+   CreateIfel(id, parent, &button->el, IFEL_BUTTON, DrawButton);
+   button->el.active = 1;
 
    return button;
 
+   SDL_FreeSurface(button->hover);
 img_hover_fail:
    SDL_FreeSurface(button->down);
 img_down_fail:
@@ -304,7 +310,7 @@ void DeleteButton(Button* btn)
    if (!btn)
       return;
 
-   RemoveIfel(NULL, (Ifel*)btn);
+   DeleteIfel(NULL, (Ifel*)btn);
 
    SDL_FreeSurface(btn->up);
    SDL_FreeSurface(btn->down);
@@ -488,7 +494,10 @@ void Run(void)
       {
          if (el->active && el->draw)
          {
-            el->draw(screen, el);
+            el->draw(el);
+            DrawIfelChildren(el);
+            //fprintf(stderr, "blting from ifel to screen\n");
+            SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
          }
          el = GetNextIfel(&i);
       }

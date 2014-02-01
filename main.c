@@ -129,7 +129,6 @@ int main(int argc, char* args[])
    {
       char filename[64];
       sprintf(filename, "graphics/%s.png", piece_name[i-ID_IMG_HORSE]);
-      fprintf(stderr, "loading image %i\n", i);
       image[i] = CreateImage(i, NULL, filename);
       if (!image[i])
       {
@@ -145,7 +144,7 @@ int main(int argc, char* args[])
    }
 
    // load buttons
-   button[0] = CreateButton(ID_BTN_OPTIONS, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
+   button[0] = CreateButton(ID_BTN_OPTIONS, NULL, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
    if (!button[0])
    {
       fprintf(stderr, "Can't create options button\n");
