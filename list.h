@@ -19,6 +19,7 @@ typedef struct list
 typedef node* iterator;
 
 list* ListCreate(void);
+void ListDestroy(list* l);
 int ListAddNode(list* l, void* data);
 int ListRemoveNode(list* l, void* data);
 node* ListGetPointerFromData(void* data);

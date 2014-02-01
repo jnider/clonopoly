@@ -13,9 +13,26 @@ list* ListCreate(void)
    return head;
 }
 
+void ListDestroy(list* l)
+{
+   // first, remove any existing nodes
+   if (l->first != NULL)
+   {
+      node* temp;
+      node* ip = l->first;
+      while (ip)
+      {
+         temp = ip;
+         ip = ip->next;
+         free(temp);
+      }
+   }
+
+   free(l);
+}
+
 int ListAddNode(list* l, void* data)
 {
-   fprintf(stderr, "ListAddNode\n");
    // create the node
    node* temp = malloc(sizeof(node));
    if (!temp)
