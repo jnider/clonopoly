@@ -1,6 +1,27 @@
 #include <malloc.h>
 #include "list.h"
 
+#define LIST_DEBUG
+
+#ifdef LIST_DEBUG
+static void dump(list* l)
+{
+   // first, remove any existing nodes
+   if (l->first != NULL)
+   {
+      node* ip = l->first;
+      int count = 0;
+      fprintf(stderr, "list %p: %i\n", l, l->size);
+      while (ip)
+      {
+         fprintf(stderr, "%i: %p\n",count, ip);
+         count++;
+         ip = ip->next;
+      }
+   }
+}
+#endif // LIST_DEBUG
+
 list* ListCreate(void)
 {
    list* head = malloc(sizeof(list));
@@ -15,6 +36,9 @@ list* ListCreate(void)
 
 void ListDestroy(list* l)
 {
+#ifdef LIST_DEBUG
+   fprintf(stderr, "ListDestroy\n");
+#endif // LIST_DEBUG
    // first, remove any existing nodes
    if (l->first != NULL)
    {
@@ -43,7 +67,12 @@ int ListAddNode(list* l, void* data)
 
    // now find the end of the list
    if (l->first == NULL)
+   {
       l->first = temp;
+#ifdef LIST_DEBUG
+      fprintf(stderr, "new first: %p\n", l->first);
+#endif // LIST_DEBUG
+   }
    else
    {
       node* ip = l->first;
@@ -61,13 +90,34 @@ int ListAddNode(list* l, void* data)
 
 int ListRemoveNode(list* l, void* data)
 {
+   int count = 0;
+#ifdef LIST_DEBUG
+   fprintf(stderr, "ListRemoveNode l=%p size=%i\n", l, l->size);
+#endif // LIST_DEBUG
    // find the node to delete
    node* ip = l->first;
+
+   // is the list empty?
+   if (l->size == 0)
+   {
+#ifdef LIST_DEBUG
+      fprintf(stderr, "empty list!\n");
+#endif // LIST_DEBUG
+      return 1;
+   }
+   dump(l);
 
    // is it the first node?
    if (ip->data == data)
    {
+#ifdef LIST_DEBUG
+      fprintf(stderr, "first node: %p\n", ip);
+#endif // LIST_DEBUG
       l->first = ip->next;
+#ifdef LIST_DEBUG
+      fprintf(stderr, "new first: %p\n", l->first);
+      dump(l);
+#endif // LIST_DEBUG
       free(ip);
       l->size--;
       return 0;
@@ -75,15 +125,25 @@ int ListRemoveNode(list* l, void* data)
 
    node* prev = ip;
    ip = ip->next;
+   count++;
    while (ip)
    {
+      count++;
       if (ip->data == data)
       {
+#ifdef LIST_DEBUG
+         fprintf(stderr, "other node: %p\n", ip);
+#endif // LIST_DEBUG
          prev->next = ip->next;
          l->size--;
          free(ip);
+#ifdef LIST_DEBUG
+         dump(l);
+         fprintf(stderr, "node %i deleted\n", count-1);
+#endif // LIST_DEBUG
          return 0;
       }
+      prev = ip;
       ip = ip->next;
    }
    return 1;
@@ -91,7 +151,9 @@ int ListRemoveNode(list* l, void* data)
 
 void* ListGetData(node* n)
 {
-   //fprintf(stderr, "ListGetData %i\n", n);
+#ifdef LIST_DEBUG
+   fprintf(stderr, "ListGetData %p\n", n);
+#endif // LIST_DEBUG
    return n->data;
 }
 
