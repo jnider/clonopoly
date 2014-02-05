@@ -20,7 +20,7 @@ int DeleteIfel(Ifel* parent, Ifel* child)
    iterator iter;
 
    // first delete all children
-   Ifel* el = GetFirstIfel(NULL, &iter);
+   Ifel* el = GetFirstIfel(child, &iter);
    while(el)
    {
       //el->delete(el); - JKN must add this
@@ -43,11 +43,12 @@ int DeleteIfel(Ifel* parent, Ifel* child)
 // set the iterator and return the first ifel's data
 Ifel* GetFirstIfel(Ifel* parent, iterator* iter)
 {
-   //fprintf(stderr, "GetFirstIfel\n");
+   //fprintf(stderr, "GetFirstIfel %i\n", parent);
    if (!parent)
    {
       if (ifels->size == 0)
          return NULL;
+      //fprintf(stderr, "size: %i first: %i\n", ifels->size, ifels->first);
       *iter = ifels->first;
    }
    else
@@ -115,9 +116,10 @@ void DrawIfelChildren(Ifel* i)
 void DrawMessageBox(Ifel* i)
 {
    //MessageBox* mb = (MessageBox*)i;
-   fprintf(stderr, "DrawMessageBox\n");
+   //fprintf(stderr, "DrawMessageBox\n");
 
-   // render the text to the surface
+   // render the messagebox to the ifel surface
+   //SDL_BlitSurface(mb->surface, NULL, i->surface, NULL);
 }
 
 MessageBox* CreateMessageBox(int id, const char* msg)
@@ -136,7 +138,6 @@ MessageBox* CreateMessageBox(int id, const char* msg)
       return NULL;
    }
    memset(mb, 0, sizeof(MessageBox));
-   
 
    // render text to determine its size
    SDL_Color textColor;
@@ -144,6 +145,12 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    textColor.g = 0;
    textColor.b = 0;
    text = TTF_RenderText_Solid(font, msg, textColor);
+   if (!text)
+   {
+      fprintf(stderr, "Error rendering text\n");
+      free(mb);
+      return NULL;
+   }
 
    // calculate windows size based on text & icons
    mb->el.loc.x = 0;
@@ -152,26 +159,23 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    mb->el.loc.w = text->w + (MESSAGE_BOX_MARGIN * 2);
    mb->el.loc.h = text->h + (MESSAGE_BOX_MARGIN * 2);
    
-   // draw the message and the box
-   roundedBoxRGBA(mb->el.surface, 0, 0, mb->el.loc.w, mb->el.loc.h, 10, 0xF0, 0, 0, 0x30);
-   if (text)
-   {
-      SDL_Rect loc;
-      loc.x = (mb->el.loc.w - text->w) / 2;
-      loc.y = (mb->el.loc.h - text->h) / 2;
-      loc.w = text->w;
-      loc.h = text->h;
-      SDL_BlitSurface(text, NULL, mb->el.surface, &loc);
-      SDL_FreeSurface(text);
-   }
-      //stringColor(mb->surface, 0, (wnd->size.h+10)/2, msg, 0xFFF0F0FF);
-
    // set the location of the window on the screen
    mb->el.loc.x = (screen->w - mb->el.loc.w) / 2;
    mb->el.loc.y = (screen->h - mb->el.loc.h) / 2;
 
    // add it to the list of windows to draw
    CreateIfel(id, NULL, (Ifel*)mb, IFEL_MESSAGEBOX, DrawMessageBox);
+
+   // draw the message and the box
+   roundedBoxRGBA(mb->el.surface, 0, 0, mb->el.loc.w, mb->el.loc.h, 10, 0xF0, 0, 0, 0x30);
+   SDL_Rect loc;
+   loc.x = (mb->el.loc.w - text->w) / 2;
+   loc.y = (mb->el.loc.h - text->h) / 2;
+   loc.w = text->w;
+   loc.h = text->h;
+   SDL_BlitSurface(text, NULL, mb->el.surface, &loc);
+   SDL_FreeSurface(text);
+
    mb->el.active = 1;
    
    return mb;
@@ -179,7 +183,9 @@ MessageBox* CreateMessageBox(int id, const char* msg)
 
 void DeleteMessageBox(MessageBox* mb)
 {
-   DeleteIfel(NULL, (Ifel*)mb);
+   fprintf(stderr, "DeleteMessageBox\n");
+   mb->el.active = 0;
+   DeleteIfel(NULL, &mb->el);
    free(mb);
 }
 
@@ -225,11 +231,14 @@ Image* CreateImage(int id, Ifel* parent, const char* bitmap)
 
 void DeleteImage(Image* img)
 {
-   fprintf(stderr, "Unloading image\n");
+   fprintf(stderr, "DeleteImage\n");
    if (!img)
+   {
+      fprintf(stderr, "null image!\n");
       return;
+   }
 
-   DeleteIfel(NULL, (Ifel*)img);
+   DeleteIfel(NULL, &img->el);
    SDL_FreeSurface(img->surface);
    free(img);
 }
@@ -446,9 +455,7 @@ void Run(void)
                {
                   currentEl = el; // remember where the button went down
                   if (el->type == IFEL_BUTTON)
-                  {
                      ((Button*)el)->state = BUTTON_PRESSED;
-                  }
                   break;
                }
                el = GetNextIfel(&i);
