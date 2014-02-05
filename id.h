@@ -11,23 +11,26 @@ enum
    ID_IMG_SHOE,
    ID_IMG_DOG,
    ID_IMG_BAG,
+   ID_IMG_LAST,
 
    // buttons
    ID_BTN_BASE = 100,
    ID_BTN_OPTIONS,
    ID_BTN_CANCEL,
+   ID_BTN_LAST,
 
    // message boxes
    ID_MSGBOX_BASE = 200,
    ID_MSGBOX1,
+   ID_MSGBOX_ROLL,
 
    // custom
    ID_MENU_BASE = 300,
    ID_MENU_OPTIONS
 };
 
-#define ID_IMG_COUNT (ID_IMG_BAG-ID_IMG_BASE)
-#define ID_BTN_COUNT (ID_BTN_OPTIONS - ID_BTN_BASE)
+#define ID_IMG_COUNT (ID_IMG_LAST - ID_IMG_BASE - 1)
+#define ID_BTN_COUNT (ID_BTN_LAST - ID_BTN_BASE - 1)
 
 #endif // _ID__H
 
