@@ -131,7 +131,7 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    }
 
    MessageBox* mb = malloc(sizeof(MessageBox));
-   fprintf(stderr, "Creating messagebox\n");
+   //fprintf(stderr, "Creating messagebox\n");
    if (!mb)
    {
       fprintf(stderr, "Error creating messagebox\n");
@@ -183,7 +183,7 @@ MessageBox* CreateMessageBox(int id, const char* msg)
 
 void DeleteMessageBox(MessageBox* mb)
 {
-   fprintf(stderr, "DeleteMessageBox\n");
+   //fprintf(stderr, "DeleteMessageBox\n");
    mb->el.active = 0;
    DeleteIfel(NULL, &mb->el);
    free(mb);
