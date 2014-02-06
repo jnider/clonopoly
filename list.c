@@ -1,7 +1,7 @@
 #include <malloc.h>
 #include "list.h"
 
-#define LIST_DEBUG
+//#define LIST_DEBUG
 
 #ifdef LIST_DEBUG
 static void dump(list* l)
@@ -105,7 +105,9 @@ int ListRemoveNode(list* l, void* data)
 #endif // LIST_DEBUG
       return 1;
    }
+#ifdef LIST_DEBUG
    dump(l);
+#endif // LIST_DEBUG
 
    // is it the first node?
    if (ip->data == data)
