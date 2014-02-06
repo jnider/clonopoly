@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <time.h>
 #include "SDL/SDL.h"
 #include "SDL/SDL_image.h"
 #include "SDL/SDL_gfxPrimitives.h"
@@ -9,6 +11,8 @@
 #define MAX_PLAYERS 4
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
 #define NUM_PROPERTIES (10 * 4)
+#define STARTING_CASH 1500
+#define ACCORDING_TO_DICE -1
 
 #define PROPERTY_HEIGHT 92
 #define PROPERTY_WIDTH 56
@@ -16,9 +20,22 @@
 #define PROPERTY_BOTTOM_ROW 604
 #define PROPERTY_LEFT_COLUMN 7
 
+#define SQUARE_GO                      0
+#define SQUARE_INCOME_TAX              4
+#define SQUARE_READING_RAILROAD        5
+#define SQUARE_JUST_VISITING           10
+#define SQUARE_PENNSYLVANIA_RR         15
+#define SQUARE_FREE_PARKING            20
+#define SQUARE_BO_RR                   25
+#define SQUARE_GO_TO_JAIL              30
+#define SQUARE_SHORT_LINE_RR           35
+#define SQUARE_LUXURY_TAX              38
+#define SQUARE_IN_JAIL                 40
+
+
 typedef struct Player
 {
-   int piece;              // which piece am I using?
+   int token;              // which piece am I using?
    int active;             // still in the game?
    int location;           // which square am I currently on?
    int money;              // how much cash do I have
@@ -29,6 +46,9 @@ typedef struct Property
    char* name;             // printable property name
    int value;              // original cost
    int rent[MAX_HOUSES];   // how much visitors have to pay
+   int numHouses;          // how many houses are on the property
+   int owner;              // who owns it?
+   int mortgaged;          // is it mortgaged?
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
 
@@ -43,62 +63,242 @@ static const char* piece_name[] =
 static MessageBox* messageBox;
 static Image* image[ID_IMG_COUNT];
 static Button* button[ID_BTN_COUNT];
+static int players;
 static Player player[MAX_PLAYERS]; // the actual players
-static Property board[NUM_PROPERTIES] =
+static int currentPlayer;
+static int dice[2];
+static Property board[NUM_PROPERTIES+1] =
 {
-   { "Go",                    0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
-   { "Community Chest",       0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Mediterranean",         0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Baltic",                0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Income Tax",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Reading Railroad",      0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Oriental Ave",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Chance",                0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Vermont Ave",           0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Connecticut Ave",       0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Go",                    0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
+   { "Mediterranean",         40,  {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Community Chest",       0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Baltic",                60,  {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Income Tax",            0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Reading Railroad",      200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Oriental Ave",          100, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Chance",                0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Vermont Ave",           100, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Connecticut Ave",       120, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
 
-   { "Jail",                  0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
-   { "St. Charles",           0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Electric Company",      0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "States Ave",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Virginia Ave",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Pennsylvania Railroad", 0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "St. James Place",       0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Community Chest",       0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Tennessee Ave",         0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "New York Ave",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Just Visiting",         0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
+   { "St. Charles",           140, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Electric Company",      150, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "States Ave",            140, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Virginia Ave",          160, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Pennsylvania Railroad", 200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "St. James Place",       180, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Community Chest",       0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Tennessee Ave",         180, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "New York Ave",          200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW+PROPERTY_HEIGHT, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
 
-   { "Free Parking",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
-   { "Kentucky Ave",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Chance",                0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Indiana",               0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Illinois",              0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "B & O Railroad",        0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Atlantic Ave",          0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Ventnor Ave",           0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Water Works",           0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Marvin Gardens",        0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Free Parking",          0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_TOP_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
+   { "Kentucky Ave",          220, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Chance",                0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Indiana",               220, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Illinois",              240, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "B & O Railroad",        200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Atlantic Ave",          260, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Ventnor Ave",           260, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Water Works",           150, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Marvin Gardens",        280, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_TOP_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
 
-   { "Go To Jail",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
-   { "Pacific Ave",           0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "North Carolina Ave",    0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Community Chest",       0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Pennsylvania Ave",      0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Short Line",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Chance",                0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Park Place",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Luxury Tax",            0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
-   { "Boardwalk",             0, {0, 0, 0, 0, 0}, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}}
+   { "Go To Jail",            0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
+   { "Pacific Ave",           300, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "North Carolina Ave",    300, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*1, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Community Chest",       0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*2, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Pennsylvania Ave",      320, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*3, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Short Line",            200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Chance",                0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Park Place",            350, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Luxury Tax",            0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+   { "Boardwalk",             400, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_TOP_ROW+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_HEIGHT, PROPERTY_WIDTH}},
+
+   { "In Jail",               0, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}}
 };
 
-void OnKeyPressed(int key)
+static void OnMouseClick(Ifel* i);
+
+void StartGame(void)
 {
-   switch(key)
+   // assumes all players have been added already
+
+   fprintf(stderr, "New game\n");
+
+   srand(time(NULL));
+   currentPlayer = rand() % players;
+   fprintf(stderr, "player %i starts\n", currentPlayer);
+   if (!messageBox)
    {
-   case 'n':
-      if (!messageBox)
-         messageBox = CreateMessageBox(0, "key press");
-      break;
+      messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
+      messageBox->el.OnMouseClick = OnMouseClick;
+   }
+}
+
+void DoneTurn(void)
+{
+   int count = 0;
+
+   // check to see if we are down to one player
+   for (int i=0; i < players; i++)
+   {
+      if (player[i].active)
+         count++;
+   }
+
+   if (count == 1)
+   {
+      printf("Game over!\n");
+      return;
+   }
+
+   // otherwise, go to the next active player's turn
+   currentPlayer = (currentPlayer + 1) % players;
+   while (!player[currentPlayer].active)
+      currentPlayer = (currentPlayer + 1) % players;
+
+   fprintf(stderr, "player %i's turn\n", currentPlayer);
+   if (!messageBox)
+   {
+      messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
+      messageBox->el.OnMouseClick = OnMouseClick;
+   }
+}
+
+void SetPlayerSquare(int id, int square)
+{
+   player[id].location = square;
+   image[player[id].token]->el.loc.w = board[square].loc.w;
+   image[player[id].token]->el.loc.h = board[square].loc.h;
+   image[player[id].token]->el.loc.x = board[square].loc.x + ((image[player[id].token]->el.loc.w - image[player[id].token]->el.loc.w) >> 1); // without the brackets on the >> this doesn't calculate right
+   image[player[id].token]->el.loc.y = board[square].loc.y + image[player[id].token]->el.loc.h - image[player[id].token]->el.loc.h;
+}
+
+int GetPlayerSquare(int id)
+{
+   return player[id].location;
+}
+
+int AddPlayer(int token, char* name)
+{
+   if (players >= MAX_PLAYERS)   
+   {
+      fprintf(stderr, "Maximum players %i is reached\n", MAX_PLAYERS);
+      return -1;
+   }
+
+   fprintf(stderr, "Adding player %s\n", name);
+   player[players].token = token;
+   player[players].active = 1;
+   SetPlayerSquare(players, 0);
+   player[players].money = STARTING_CASH;
+   players++;
+
+   
+   image[token]->el.active = 1;
+
+   return players;
+}
+
+void RollDice(void)
+{
+   dice[0] = rand() % 6;
+   dice[1] = rand() % 6;
+   fprintf(stderr, "dice: %i %i\n", dice[0], dice[1]);
+}
+
+void MovePlayer(int square)
+{
+   int startSquare = GetPlayerSquare(currentPlayer);
+
+   if (square == ACCORDING_TO_DICE)
+      SetPlayerSquare(currentPlayer, (startSquare + dice[0] + dice[1]) % NUM_PROPERTIES);
+   else
+      SetPlayerSquare(currentPlayer, square);
+
+   int endSquare = GetPlayerSquare(currentPlayer);
+   printf("You landed on %s\n", board[endSquare].name);
+
+   // did you pass go? (and not go to jail)
+   if ((endSquare != SQUARE_IN_JAIL) && (endSquare < startSquare))
+   {
+      printf("Passed GO - got $200\n");
+      player[currentPlayer].money += 200;
+   }
+
+   // check the special squares first
+   switch (endSquare)
+   {
+   case SQUARE_GO:
+      printf("Got $200\n");
+      player[currentPlayer].money += 200;
+      return;
+
+   case SQUARE_INCOME_TAX:
+      printf("Pay income tax\n");
+      player[currentPlayer].money -= 200;
+      return;
+
+   case SQUARE_JUST_VISITING:
+   case SQUARE_FREE_PARKING:
+      printf("Nothing happens - this time\n");
+      return;
+      
+   case SQUARE_GO_TO_JAIL:
+      printf("That's it - off to jail\n");
+      SetPlayerSquare(currentPlayer, SQUARE_IN_JAIL);
+      return;
+
+   case SQUARE_LUXURY_TAX:
+      printf("Pay luxury tax\n");
+      player[currentPlayer].money -= 75;
+      return;
+
+   // community chest
+   case 1:
+   case 17:
+   case 33:
+      printf("Pick a CC card\n");
+      return;
+
+   case 7:
+   case 22:
+   case 36:
+      printf("Pick a Chance card\n");
+      return;
+   }
+
+   // otherwise, it is a property. Is it unowned?
+   if (board[endSquare].owner == -1)
+   {
+      printf("Would you like to buy it? It costs $%i\n", board[endSquare].value);
+      player[currentPlayer].money -= board[endSquare].value; 
+      board[endSquare].owner = currentPlayer;
+   }
+   else
+   {
+      int rent;
+      if (board[endSquare].mortgaged)
+      {
+         printf("mortgaged\n");
+      }
+      else
+      {
+         // if its a railroad, see how many other railroads are owned
+         if (endSquare == SQUARE_READING_RAILROAD 
+            || endSquare == SQUARE_PENNSYLVANIA_RR
+            || endSquare == SQUARE_BO_RR
+            || endSquare == SQUARE_SHORT_LINE_RR)
+         {
+         }
+         else
+         {
+            rent = board[endSquare].rent[board[endSquare].numHouses];
+         }
+         printf("You owe %i in rent\n", rent);
+
+         player[currentPlayer].money -= rent; 
+         player[board[endSquare].owner].money += rent;
+      }
    }
 }
 
@@ -109,7 +309,37 @@ static void OnMouseClick(Ifel* i)
    {
    case ID_BTN_OPTIONS:
       fprintf(stderr, "Click in options button\n");
-      ShowOptionsMenu();
+      //ShowOptionsMenu();
+      break;
+
+   case ID_MSGBOX1:
+      DeleteMessageBox(messageBox);
+      messageBox = NULL;
+      AddPlayer(ID_IMG_SHOE, "Joel");
+      AddPlayer(ID_IMG_DOG, "Merav");
+      StartGame();
+      break;
+
+   case ID_MSGBOX_ROLL:
+      DeleteMessageBox(messageBox);
+      messageBox = NULL;
+      RollDice();
+      MovePlayer(ACCORDING_TO_DICE);
+      DoneTurn();
+      break;
+   }
+}
+
+void OnKeyPressed(int key)
+{
+   switch(key)
+   {
+   case 'n':
+      if (!messageBox)
+      {
+         messageBox = CreateMessageBox(ID_MSGBOX1, "New Game");
+         messageBox->el.OnMouseClick = OnMouseClick;
+      }
       break;
    }
 }
@@ -162,7 +392,7 @@ int main(int argc, char* args[])
    }
 
    // free UI elements
-   for (int i=ID_IMG_BASE; i < ID_IMG_BASE+ID_IMG_COUNT; i++)
+   for (int i=ID_IMG_BASE+1; i < ID_IMG_BASE+ID_IMG_COUNT; i++)
       DeleteImage(image[i]);
 
    for (int i=ID_BTN_BASE; i < ID_BTN_BASE+ID_BTN_COUNT; i++)
