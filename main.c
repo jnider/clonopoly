@@ -5,8 +5,9 @@
 #include "SDL/SDL_gfxPrimitives.h"
 #include "SDL/SDL_ttf.h"
 #include "ui.h"
-#include "options.h"
 #include "id.h"
+#include "options.h"
+#include "status.h"
 
 #define MAX_PLAYERS 4
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
@@ -394,14 +395,6 @@ static void OnMouseClick(Ifel* i)
       //ShowOptionsMenu();
       break;
 
-   case ID_MSGBOX_NEW_GAME:
-      DeleteMessageBox(messageBox);
-      messageBox = NULL;
-      AddPlayer(ID_IMG_SHOE, "Joel");
-      AddPlayer(ID_IMG_DOG, "Merav");
-      StartGame();
-      break;
-
    case ID_MSGBOX_ROLL:
       DeleteMessageBox(messageBox);
       messageBox = NULL;
@@ -419,10 +412,11 @@ void OnKeyPressed(Ifel* el, int key)
       break;
 
    case 'n':
-      if (!messageBox)
+      if (ModalMessageBox(ID_MSGBOX_NEW_GAME, "Start a new game?") == MB_YES)
       {
-         messageBox = CreateMessageBox(ID_MSGBOX_NEW_GAME, "New Game");
-         messageBox->el.OnMouseClick = OnMouseClick;
+         AddPlayer(ID_IMG_SHOE, "Joel");
+         AddPlayer(ID_IMG_DOG, "Merav");
+         StartGame();
       }
       break;
    }
@@ -467,6 +461,13 @@ int main(int argc, char* args[])
    }
    button[0]->el.OnMouseClick = OnMouseClick;
 
+   // create status area
+   if (CreateStatusArea() != 0)
+   {
+      fprintf(stderr, "Can't create status area\n");
+      return 3;
+   }
+
    Run();
 
    fprintf(stderr, "Cleanup\n");
@@ -475,6 +476,8 @@ int main(int argc, char* args[])
       DeleteMessageBox(messageBox);
       messageBox = NULL; // not completely necessary, but a good habit
    }
+
+   DeleteStatusArea();
 
    // free UI elements
    for (int i=ID_IMG_BASE+1; i < ID_IMG_BASE+ID_IMG_COUNT; i++)
