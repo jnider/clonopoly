@@ -17,12 +17,14 @@ enum
    ID_BTN_BASE = 100,
    ID_BTN_OPTIONS,
    ID_BTN_CANCEL,
+   ID_BTN_OK,
    ID_BTN_LAST,
 
    // message boxes
    ID_MSGBOX_BASE = 200,
-   ID_MSGBOX1,
+   ID_MSGBOX_NEW_GAME,
    ID_MSGBOX_ROLL,
+   ID_MSGBOX_BUY_PROPERTY,
 
    // custom
    ID_MENU_BASE = 300,

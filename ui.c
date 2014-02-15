@@ -6,13 +6,28 @@
 
 #define MESSAGE_BOX_MARGIN 10
 
-extern void OnKeyPressed(int key);
+static int DispatchEvents(void);
+static void Redraw(void);
 
 // SDL stuff
 static Ifel* currentEl;
+static Ifel* elFocus;
 static SDL_Surface* screen;
 static TTF_Font* font;
 static list* ifels;
+static int returnCode;
+static int quit;
+
+void SetFocus(Ifel* el)
+{
+   fprintf(stderr, "SetFocus\n");
+   elFocus = el;
+}
+
+Ifel* GetFocus(void)
+{
+   return elFocus;
+}
 
 int DeleteIfel(Ifel* parent, Ifel* child)
 {
@@ -94,6 +109,10 @@ Ifel* CreateIfel(int id, Ifel* parent, Ifel* me, IfelType type, IfelDrawFn draw)
    else
       ListAddNode(parent->ifels, me);
 
+   // if there is no element with focus, set it now
+   if (!elFocus)
+      elFocus = me;
+
    return me;
 }
 
@@ -111,6 +130,42 @@ void DrawIfelChildren(Ifel* i)
       }
       el = GetNextIfel(&iter);
    }
+}
+
+static void ModalOnKeyPressed(Ifel* el, int key)
+{
+   fprintf(stderr, "ModalOnKeyPressed\n");
+   if (key == 'y' || key == 'Y')
+      returnCode = MB_YES;
+   if (key == 'n' || key == 'N')
+      returnCode = MB_NO;
+}
+
+int ModalMessageBox(int id, const char* msg)
+{
+   fprintf(stderr, "ModalMessageBox\n");
+   MessageBox* mb = CreateMessageBox(id, msg);
+   mb->el.OnKeyPressed = ModalOnKeyPressed;
+   Ifel* prevFocus = GetFocus();
+   SetFocus(&mb->el);
+
+   // wait until there is a valid input from the user
+   returnCode = MB_UNDEFINED;
+   while (returnCode == MB_UNDEFINED)
+   {
+      if (!DispatchEvents())
+      {
+         quit = 1;
+         break;
+      }
+      Redraw();
+   }
+
+   // clean up and return
+   SetFocus(prevFocus);
+   DeleteMessageBox(mb);
+
+   return returnCode;
 }
 
 void DrawMessageBox(Ifel* i)
@@ -393,18 +448,56 @@ int DestroyUI(void)
    return 0;
 }
 
+static void Redraw(void)
+{
+   // now redraw the screen by running through all Ifels in DFS manner
+   //fprintf(stderr, "Redraw\n");
+   iterator i;
+   Ifel* el = GetFirstIfel(NULL, &i);
+   while(el)
+   {
+      if (el->active && el->draw)
+      {
+         el->draw(el);
+         DrawIfelChildren(el);
+         SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
+      }
+      el = GetNextIfel(&i);
+   }
+   SDL_Flip(screen);
+}
 
 // the main event loop (dispatcher) function
 void Run(void)
 {
-   SDL_Event event;
-   iterator i;
-   Ifel* el;
-
    fprintf(stderr, "Run\n");
 
-   while (1)
+   while (!quit)
    {
+      if (!DispatchEvents())
+      {
+         quit = 1;
+         break;
+      }
+
+#if DEBUG
+      // show property alignment
+      for (int i=0; i < NUM_PROPERTIES; i++)
+         rectangleColor(screen, board[i].loc.x, board[i].loc.y,
+            board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
+#endif
+
+      Redraw();
+   }
+}
+
+static int DispatchEvents(void)
+{
+   SDL_Event event;
+   Ifel* el;
+   iterator i;
+
+   //fprintf(stderr, "Dispatch\n");
       // first handle any events
       while (SDL_PollEvent(&event))
       {
@@ -412,7 +505,8 @@ void Run(void)
          {
          case SDL_KEYDOWN:
             fprintf(stderr, "key down\n");
-            OnKeyPressed(event.key.keysym.sym);
+            if(elFocus->OnKeyPressed)
+               elFocus->OnKeyPressed(elFocus, event.key.keysym.sym);
             break;
 
          case SDL_MOUSEMOTION:
@@ -490,33 +584,10 @@ void Run(void)
             break;
 
          case SDL_QUIT:
-            return;
+            return 0;
          }
       }
 
-      // now redraw the screen by running through all Ifels in DFS manner
-      //fprintf(stderr, "drawing ifels\n");
-      Ifel* el = GetFirstIfel(NULL, &i);
-      while(el)
-      {
-         if (el->active && el->draw)
-         {
-            el->draw(el);
-            DrawIfelChildren(el);
-            //fprintf(stderr, "blting from ifel to screen\n");
-            SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
-         }
-         el = GetNextIfel(&i);
-      }
-
-#if DEBUG
-      // show property alignment
-      for (int i=0; i < NUM_PROPERTIES; i++)
-         rectangleColor(screen, board[i].loc.x, board[i].loc.y,
-            board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
-#endif
-
-      SDL_Flip(screen);
-   }
+   return 1;
 }
 

@@ -39,6 +39,9 @@ typedef struct Player
    int active;             // still in the game?
    int location;           // which square am I currently on?
    int money;              // how much cash do I have
+   int inJail;             // am I in jail?
+   int turnsLeftInJail;    // how long until I have to pay
+   int doublesCount;       // can only roll doubles 3 times before going to jail
 } Player;
 
 typedef struct Property
@@ -70,8 +73,8 @@ static int dice[2];
 static Property board[NUM_PROPERTIES+1] =
 {
    { "Go",                    0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
-   { "Mediterranean",         40,  {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
-   { "Community Chest",       0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Mediterranean",         40,  {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*8, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
+   { "Community Chest",       0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*7, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
    { "Baltic",                60,  {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*6, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
    { "Income Tax",            0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*5, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
    { "Reading Railroad",      200, {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*4, PROPERTY_BOTTOM_ROW, PROPERTY_WIDTH, PROPERTY_HEIGHT}},
@@ -136,6 +139,7 @@ void StartGame(void)
 
 void DoneTurn(void)
 {
+   fprintf(stderr, "DoneTurn\n");
    int count = 0;
 
    // check to see if we are down to one player
@@ -166,6 +170,7 @@ void DoneTurn(void)
 
 void SetPlayerSquare(int id, int square)
 {
+   fprintf(stderr, "player %i now on %i\n", id, square);
    player[id].location = square;
    image[player[id].token]->el.loc.w = board[square].loc.w;
    image[player[id].token]->el.loc.h = board[square].loc.h;
@@ -189,6 +194,8 @@ int AddPlayer(int token, char* name)
    fprintf(stderr, "Adding player %s\n", name);
    player[players].token = token;
    player[players].active = 1;
+   player[players].inJail = 0;
+   player[players].doublesCount = 0;
    SetPlayerSquare(players, 0);
    player[players].money = STARTING_CASH;
    players++;
@@ -201,8 +208,8 @@ int AddPlayer(int token, char* name)
 
 void RollDice(void)
 {
-   dice[0] = rand() % 6;
-   dice[1] = rand() % 6;
+   dice[0] = (rand() % 6) + 1;
+   dice[1] = (rand() % 6) + 1;
    fprintf(stderr, "dice: %i %i\n", dice[0], dice[1]);
 }
 
@@ -211,9 +218,36 @@ void MovePlayer(int square)
    int startSquare = GetPlayerSquare(currentPlayer);
 
    if (square == ACCORDING_TO_DICE)
-      SetPlayerSquare(currentPlayer, (startSquare + dice[0] + dice[1]) % NUM_PROPERTIES);
+   {
+      if (dice[0] == dice[1])
+         player[currentPlayer].doublesCount++;
+      else
+         player[currentPlayer].doublesCount = 0;
+
+      // if the player is in jail, its a different set of rules
+      if (player[currentPlayer].inJail)
+      {
+         player[currentPlayer].doublesCount = 0;
+         SetPlayerSquare(currentPlayer, SQUARE_JUST_VISITING);
+         startSquare = GetPlayerSquare(currentPlayer);
+         // from here, join the normal flow as if we had been in 'just visiting'
+      }
+
+      if (player[currentPlayer].doublesCount == 3)
+      {
+         printf("Too many doubles - going to jail\n");
+         player[currentPlayer].doublesCount++;
+         SetPlayerSquare(currentPlayer, SQUARE_IN_JAIL);
+      }
+      else
+      {
+         SetPlayerSquare(currentPlayer, (startSquare + dice[0] + dice[1]) % NUM_PROPERTIES);
+      }
+   }
    else
+   {
       SetPlayerSquare(currentPlayer, square);
+   }
 
    int endSquare = GetPlayerSquare(currentPlayer);
    printf("You landed on %s\n", board[endSquare].name);
@@ -226,80 +260,103 @@ void MovePlayer(int square)
    }
 
    // check the special squares first
+   int handled = 0;
    switch (endSquare)
    {
    case SQUARE_GO:
       printf("Got $200\n");
       player[currentPlayer].money += 200;
-      return;
+      handled = 1;
+      break;
 
    case SQUARE_INCOME_TAX:
       printf("Pay income tax\n");
       player[currentPlayer].money -= 200;
-      return;
+      handled = 1;
+      break;
 
    case SQUARE_JUST_VISITING:
    case SQUARE_FREE_PARKING:
       printf("Nothing happens - this time\n");
-      return;
+      handled = 1;
+      break;
       
    case SQUARE_GO_TO_JAIL:
       printf("That's it - off to jail\n");
       SetPlayerSquare(currentPlayer, SQUARE_IN_JAIL);
-      return;
+      handled = 1;
+      break;
 
    case SQUARE_LUXURY_TAX:
       printf("Pay luxury tax\n");
       player[currentPlayer].money -= 75;
-      return;
+      handled = 1;
+      break;
 
    // community chest
-   case 1:
+   case 2:
    case 17:
    case 33:
       printf("Pick a CC card\n");
-      return;
+      handled = 1;
+      break;
 
    case 7:
    case 22:
    case 36:
       printf("Pick a Chance card\n");
-      return;
+      handled = 1;
+      break;
    }
 
-   // otherwise, it is a property. Is it unowned?
-   if (board[endSquare].owner == -1)
+   if (!handled)
    {
-      printf("Would you like to buy it? It costs $%i\n", board[endSquare].value);
-      player[currentPlayer].money -= board[endSquare].value; 
-      board[endSquare].owner = currentPlayer;
-   }
-   else
-   {
-      int rent;
-      if (board[endSquare].mortgaged)
+      // otherwise, it is a property. Is it unowned?
+      if (board[endSquare].owner == -1)
       {
-         printf("mortgaged\n");
-      }
-      else
-      {
-         // if its a railroad, see how many other railroads are owned
-         if (endSquare == SQUARE_READING_RAILROAD 
-            || endSquare == SQUARE_PENNSYLVANIA_RR
-            || endSquare == SQUARE_BO_RR
-            || endSquare == SQUARE_SHORT_LINE_RR)
+         printf("unowned\n");
+         char msg[100];
+         sprintf(msg, "Would you like to buy %s? It costs $%i", board[endSquare].name, board[endSquare].value);
+         if (ModalMessageBox(ID_MSGBOX_BUY_PROPERTY, msg) == MB_YES)
          {
+            player[currentPlayer].money -= board[endSquare].value; 
+            board[endSquare].owner = currentPlayer;
+            printf("%i bought %s\n", currentPlayer, board[endSquare].name);
          }
          else
          {
-            rent = board[endSquare].rent[board[endSquare].numHouses];
+            printf("auctions not implemented yet\n");
          }
-         printf("You owe %i in rent\n", rent);
-
-         player[currentPlayer].money -= rent; 
-         player[board[endSquare].owner].money += rent;
+      }
+      else
+      {
+         int rent;
+         printf("owned\n");
+         if (board[endSquare].mortgaged)
+         {
+            printf("mortgaged\n");
+         }
+         else
+         {
+            // if its a railroad, see how many other railroads are owned
+            if (endSquare == SQUARE_READING_RAILROAD 
+               || endSquare == SQUARE_PENNSYLVANIA_RR
+               || endSquare == SQUARE_BO_RR
+               || endSquare == SQUARE_SHORT_LINE_RR)
+            {
+            }
+            else
+            {
+               rent = board[endSquare].rent[board[endSquare].numHouses];
+            }
+            printf("You owe %i in rent\n", rent);
+   
+            player[currentPlayer].money -= rent; 
+            player[board[endSquare].owner].money += rent;
+         }
       }
    }
+   DoneTurn();
 }
 
 static void OnMouseClick(Ifel* i)
@@ -312,7 +369,7 @@ static void OnMouseClick(Ifel* i)
       //ShowOptionsMenu();
       break;
 
-   case ID_MSGBOX1:
+   case ID_MSGBOX_NEW_GAME:
       DeleteMessageBox(messageBox);
       messageBox = NULL;
       AddPlayer(ID_IMG_SHOE, "Joel");
@@ -325,19 +382,21 @@ static void OnMouseClick(Ifel* i)
       messageBox = NULL;
       RollDice();
       MovePlayer(ACCORDING_TO_DICE);
-      DoneTurn();
       break;
    }
 }
 
-void OnKeyPressed(int key)
+void OnKeyPressed(Ifel* el, int key)
 {
    switch(key)
    {
+   case 'y':
+      break;
+
    case 'n':
       if (!messageBox)
       {
-         messageBox = CreateMessageBox(ID_MSGBOX1, "New Game");
+         messageBox = CreateMessageBox(ID_MSGBOX_NEW_GAME, "New Game");
          messageBox->el.OnMouseClick = OnMouseClick;
       }
       break;
@@ -353,7 +412,8 @@ int main(int argc, char* args[])
    }
 
    image[ID_IMG_BOARD] = CreateImage(ID_IMG_BOARD, NULL, "graphics/board.png");
-
+   image[ID_IMG_BOARD]->el.OnKeyPressed = OnKeyPressed;
+ 
    // load player piece images
    for (int i=ID_IMG_HORSE; i < ID_IMG_COUNT; i++)
    {

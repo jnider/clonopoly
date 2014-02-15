@@ -4,6 +4,9 @@
 #include "list.h"
 #include "SDL/SDL.h"
 
+#define MB_NO     0
+#define MB_YES    1
+#define MB_UNDEFINED 0xFF
 
 typedef enum IfelType
 {
@@ -23,6 +26,7 @@ typedef enum ButtonState
 struct Ifel;
 typedef void(*IfelDrawFn)(struct Ifel* el);
 typedef void(*IfelOnMouseClickFn)(struct Ifel* el);
+typedef void(*IfelOnKeyPressedFn)(struct Ifel* el, int key);
 
 typedef struct Ifel
 {
@@ -39,6 +43,7 @@ typedef struct Ifel
 
    // some event callbacks
    IfelOnMouseClickFn OnMouseClick;
+   IfelOnKeyPressedFn OnKeyPressed;
 } Ifel;
 
 
@@ -63,9 +68,17 @@ typedef struct MessageBox
    int flags;
 } MessageBox;
 
+typedef enum MessageBoxStyle
+{
+   MSGBOX_PLAIN,
+   MSGBOX_YESNO
+} MessageBoxStyle;
+
 void Run(void);
 int InitUI(void);
 int DestroyUI(void);
+
+void SetFocus(Ifel* el);
 
 Ifel* CreateIfel(int id, Ifel* parent, Ifel* me, IfelType type, IfelDrawFn draw);
 int DeleteIfel(Ifel* parent, Ifel* child);
@@ -81,6 +94,7 @@ void DeleteButton(Button* btn);
 
 MessageBox* CreateMessageBox(int id, const char* msg);
 void DeleteMessageBox(MessageBox* mb);
+int ModalMessageBox(int id, const char* msg);
 
 #endif // _UI__H
 
