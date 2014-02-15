@@ -22,11 +22,13 @@
 
 #define SQUARE_GO                      0
 #define SQUARE_INCOME_TAX              4
-#define SQUARE_READING_RAILROAD        5
+#define SQUARE_READING_RR              5
 #define SQUARE_JUST_VISITING           10
+#define SQUARE_ELECTRIC_CO             12
 #define SQUARE_PENNSYLVANIA_RR         15
 #define SQUARE_FREE_PARKING            20
 #define SQUARE_BO_RR                   25
+#define SQUARE_WATER_WORKS             28
 #define SQUARE_GO_TO_JAIL              30
 #define SQUARE_SHORT_LINE_RR           35
 #define SQUARE_LUXURY_TAX              38
@@ -338,12 +340,35 @@ void MovePlayer(int square)
          }
          else
          {
-            // if its a railroad, see how many other railroads are owned
-            if (endSquare == SQUARE_READING_RAILROAD 
+            if (  endSquare == SQUARE_READING_RR 
                || endSquare == SQUARE_PENNSYLVANIA_RR
                || endSquare == SQUARE_BO_RR
                || endSquare == SQUARE_SHORT_LINE_RR)
             {
+               int rrCount = 0;
+
+               // count how many other railroads are owned
+               if (board[SQUARE_READING_RR].owner == currentPlayer)
+                  rrCount++;
+               if (board[SQUARE_PENNSYLVANIA_RR].owner == currentPlayer)
+                  rrCount++;
+               if (board[SQUARE_BO_RR].owner == currentPlayer)
+                  rrCount++;
+               if (board[SQUARE_SHORT_LINE_RR].owner == currentPlayer)
+                  rrCount++;
+
+               // multiply the count by 50
+               rent = 50 * rrCount;
+            }
+            else if ( endSquare == SQUARE_ELECTRIC_CO
+               || endSquare == SQUARE_WATER_WORKS)
+            {
+               // one utility is x4, both utilities is x10
+               if (board[SQUARE_ELECTRIC_CO].owner == currentPlayer
+                  && board[SQUARE_WATER_WORKS].owner == currentPlayer)
+                  rent = (dice[0] + dice[1]) * 10;
+               else
+                  rent = (dice[0] + dice[1]) * 4;
             }
             else
             {
