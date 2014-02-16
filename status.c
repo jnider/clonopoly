@@ -3,8 +3,6 @@
 #include "options.h"
 #include "SDL/SDL_gfxPrimitives.h"
 
-#define WIDTH 275
-#define HEIGHT 600
 
 struct StatusArea
 {
@@ -22,12 +20,12 @@ static void DrawStatusArea(Ifel* i)
    //fprintf(stderr, "DrawOptionsMenu\n");
 
    // draw it
-   roundedBoxRGBA(s->surface, 0, 0, WIDTH, HEIGHT, 10, 0, 255, 0, 100);
+   roundedBoxRGBA(s->surface, 0, 0, s->surface->w, s->surface->h, 10, 0, 255, 0, 100);
 
    SDL_BlitSurface(s->surface, NULL, i->surface, NULL);
 }
 
-int CreateStatusArea(void)
+int CreateStatusArea(const SDL_Rect* loc)
 {
    // if it doesn't exist yet, create it
    if (!status)
@@ -37,7 +35,7 @@ int CreateStatusArea(void)
          return 1;
 
       // create the surface
-      status->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, WIDTH, HEIGHT, 32, 0, 0, 0, 0);
+      status->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, loc->w, loc->h, 32, 0, 0, 0, 0);
       if (!status->surface)
       {
          fprintf(stderr, "Error creating status area surface\n");
@@ -54,10 +52,10 @@ int CreateStatusArea(void)
          SDL_FreeSurface(status->surface);
          return 3;
       }
-      status->ifel->loc.x = 705;
-      status->ifel->loc.y = 0;
-      status->ifel->loc.w = WIDTH;
-      status->ifel->loc.h = HEIGHT;
+      status->ifel->loc.x = loc->x;
+      status->ifel->loc.y = loc->y;
+      status->ifel->loc.w = loc->w;
+      status->ifel->loc.h = loc->h;
       CreateIfel(ID_MENU_OPTIONS, NULL, status->ifel, IFEL_CUSTOM, DrawStatusArea);
       status->ifel->data = status;
    }

@@ -462,7 +462,12 @@ int main(int argc, char* args[])
    button[0]->el.OnMouseClick = OnMouseClick;
 
    // create status area
-   if (CreateStatusArea() != 0)
+   SDL_Rect statusRect;
+   statusRect.x = image[ID_IMG_BOARD]->el.loc.x + image[ID_IMG_BOARD]->el.loc.w;
+   statusRect.y = 0;
+   statusRect.w = 275;
+   statusRect.h = 600;
+   if (CreateStatusArea(&statusRect) != 0)
    {
       fprintf(stderr, "Can't create status area\n");
       return 3;
