@@ -7,6 +7,7 @@
 #define MB_NO     0
 #define MB_YES    1
 #define MB_UNDEFINED 0xFF
+#define ID_MB_YESNO  (-10)
 
 typedef enum IfelType
 {

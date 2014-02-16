@@ -14,6 +14,7 @@
 #define NUM_PROPERTIES (10 * 4)
 #define STARTING_CASH 1500
 #define ACCORDING_TO_DICE -1
+#define PLAYER_BANK  0xFF
 
 #define PROPERTY_HEIGHT 92
 #define PROPERTY_WIDTH 56
@@ -73,6 +74,7 @@ static int players;
 static Player player[MAX_PLAYERS]; // the actual players
 static int currentPlayer;
 static int dice[2];
+static int gameOver;
 static Property board[NUM_PROPERTIES+1] =
 {
    { "Go",                    0,   {0, 0, 0, 0, 0}, 0, -1, 0, {PROPERTY_LEFT_COLUMN+PROPERTY_HEIGHT+PROPERTY_WIDTH*9, PROPERTY_BOTTOM_ROW, PROPERTY_HEIGHT, PROPERTY_HEIGHT}},
@@ -138,6 +140,54 @@ void StartGame(void)
       messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
       messageBox->el.OnMouseClick = OnMouseClick;
    }
+}
+
+int HasAssets(int playerID)
+{
+   // do you have anything to mortgage?
+
+   // do you have any houses you can sell?
+
+   return 1;
+}
+
+void GameOver(void)
+{
+   gameOver = 1;
+}
+
+void PlayerOutOfBusiness(int playerID)
+{
+   player[playerID].active = 0;
+   players--;
+   
+   if (players == 1)
+   {
+      GameOver();
+   }
+}
+
+void PayMoney(int from, int to, int amount)
+{
+      if (from != PLAYER_BANK)
+      {
+         player[from].money -= amount;
+
+         // check to see if we are out of money
+         while (player[from].money < 0 && HasAssets(from))
+         {
+            fprintf(stderr, "Out of money!\n");
+            //LiquidateAssetsDlg();
+         }
+
+         if (player[from].money < 0)
+         {
+            PlayerOutOfBusiness(from);
+         }
+      }
+
+      if (to != PLAYER_BANK)
+         player[to].money += amount;
 }
 
 void DoneTurn(void)
@@ -268,13 +318,14 @@ void MovePlayer(int square)
    {
    case SQUARE_GO:
       printf("Got $200\n");
-      player[currentPlayer].money += 200;
+      PayMoney(PLAYER_BANK, currentPlayer, 200);
       handled = 1;
       break;
 
    case SQUARE_INCOME_TAX:
       printf("Pay income tax\n");
-      player[currentPlayer].money -= 200;
+      // give option to calculate 10% of assets - JKN
+      PayMoney(currentPlayer, PLAYER_BANK, 200);
       handled = 1;
       break;
 
@@ -292,7 +343,7 @@ void MovePlayer(int square)
 
    case SQUARE_LUXURY_TAX:
       printf("Pay luxury tax\n");
-      player[currentPlayer].money -= 75;
+      PayMoney(currentPlayer, PLAYER_BANK, 75);
       handled = 1;
       break;
 
@@ -377,8 +428,7 @@ void MovePlayer(int square)
             }
             printf("You owe %i in rent\n", rent);
    
-            player[currentPlayer].money -= rent; 
-            player[board[endSquare].owner].money += rent;
+            PayMoney(currentPlayer, board[endSquare].owner, rent);
          }
       }
    }
@@ -453,7 +503,10 @@ int main(int argc, char* args[])
    }
 
    // load buttons
-   button[0] = CreateButton(ID_BTN_OPTIONS, NULL, 0, 708, "graphics/btn_options_1.png", "graphics/btn_options_2.png", "graphics/btn_options_3.png");
+   button[0] = CreateButton(ID_BTN_OPTIONS, NULL, 0, image[ID_IMG_BOARD]->el.loc.y + image[ID_IMG_BOARD]->el.loc.h,
+      "graphics/btn_options_1.png",
+      "graphics/btn_options_2.png",
+      "graphics/btn_options_3.png");
    if (!button[0])
    {
       fprintf(stderr, "Can't create options button\n");
@@ -474,6 +527,15 @@ int main(int argc, char* args[])
    }
 
    Run();
+
+   fprintf(stderr, "Save game\n");
+   if (!gameOver)
+   {
+      if (ModalMessageBox(ID_MB_YESNO, "Would you like to save the current game?") == MB_YES)
+      {
+         //SaveGame("game1.clonopoly");
+      }
+   }
 
    fprintf(stderr, "Cleanup\n");
    if (messageBox)
