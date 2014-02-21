@@ -17,7 +17,9 @@ static struct StatusArea* status;
 static void DrawStatusArea(Ifel* i)
 {
    struct StatusArea* s = (struct StatusArea*)i->data;
-   SDL_Surface* text;
+   SDL_Surface* name;
+   SDL_Surface* money;
+   SDL_Rect loc;
 
    // background
    roundedBoxRGBA(s->surface, 0, 0, s->surface->w, s->surface->h, 10, 0, 255, 0, 100);
@@ -27,14 +29,28 @@ static void DrawStatusArea(Ifel* i)
    // current player's name
    SDL_Color textColor;
    textColor.r = 0xFF;
-   textColor.g = 0;
-   textColor.b = 0;
-   text = TTF_RenderText_Solid(font, status->player->name, textColor);
-   if (!text)
+   textColor.g = 0x80;
+   textColor.b = 0xFF;
+   loc.x = 10;
+   loc.y = 4;
+   name = TTF_RenderText_Solid(font, status->player->name, textColor);
+   if (!name)
    {
-      fprintf(stderr, "Error rendering text\n");
+      fprintf(stderr, "Error rendering name\n");
    }
-   SDL_BlitSurface(text, NULL, s->surface, NULL);
+   SDL_BlitSurface(name, NULL, s->surface, &loc);
+   SDL_FreeSurface(name);
+
+   // remaining money
+   char tempText[64];
+   sprintf(tempText, "$%i.00", status->player->money);
+   money = TTF_RenderText_Solid(font, tempText, textColor);
+   loc.y = 30;
+   if (money)
+   {
+      SDL_BlitSurface(money, NULL, s->surface, &loc);
+      SDL_FreeSurface(money);
+   }
 
    SDL_BlitSurface(s->surface, NULL, i->surface, NULL);
 }
