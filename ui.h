@@ -3,11 +3,14 @@
 
 #include "list.h"
 #include "SDL/SDL.h"
+#include "SDL/SDL_ttf.h"
 
 #define MB_NO     0
 #define MB_YES    1
 #define MB_UNDEFINED 0xFF
 #define ID_MB_YESNO  (-10)
+
+extern TTF_Font* font;
 
 typedef enum IfelType
 {

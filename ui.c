@@ -10,10 +10,10 @@ static int DispatchEvents(void);
 static void Redraw(void);
 
 // SDL stuff
+TTF_Font* font;
 static Ifel* currentEl;
 static Ifel* elFocus;
 static SDL_Surface* screen;
-static TTF_Font* font;
 static list* ifels;
 static int returnCode;
 static int quit;

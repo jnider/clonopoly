@@ -2,12 +2,13 @@
 #include "id.h"
 #include "options.h"
 #include "SDL/SDL_gfxPrimitives.h"
-
+#include "game.h"
 
 struct StatusArea
 {
    Ifel* ifel;
    SDL_Surface* surface;
+   Player* player;
 };
 
 // our 'singleton'
@@ -16,11 +17,24 @@ static struct StatusArea* status;
 static void DrawStatusArea(Ifel* i)
 {
    struct StatusArea* s = (struct StatusArea*)i->data;
+   SDL_Surface* text;
 
-   //fprintf(stderr, "DrawOptionsMenu\n");
-
-   // draw it
+   // background
    roundedBoxRGBA(s->surface, 0, 0, s->surface->w, s->surface->h, 10, 0, 255, 0, 100);
+
+   //printf("Name: %s\n", status->player->name);
+
+   // current player's name
+   SDL_Color textColor;
+   textColor.r = 0xFF;
+   textColor.g = 0;
+   textColor.b = 0;
+   text = TTF_RenderText_Solid(font, status->player->name, textColor);
+   if (!text)
+   {
+      fprintf(stderr, "Error rendering text\n");
+   }
+   SDL_BlitSurface(text, NULL, s->surface, NULL);
 
    SDL_BlitSurface(s->surface, NULL, i->surface, NULL);
 }
@@ -77,3 +91,17 @@ void DeleteStatusArea(void)
    }
 }
 
+void SetCurrentPlayerStatusArea(Player* p)
+{
+   status->player = p;   
+}
+
+void DisableStatusArea(void)
+{
+   status->ifel->active = 0;
+}
+
+void EnableStatusArea(void)
+{
+   status->ifel->active = 1;
+}

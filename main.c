@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "SDL/SDL.h"
 #include "SDL/SDL_image.h"
@@ -8,56 +9,7 @@
 #include "id.h"
 #include "options.h"
 #include "status.h"
-
-#define MAX_PLAYERS 4
-#define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
-#define NUM_PROPERTIES (10 * 4)
-#define STARTING_CASH 1500
-#define ACCORDING_TO_DICE -1
-#define PLAYER_BANK  0xFF
-
-#define PROPERTY_HEIGHT 92
-#define PROPERTY_WIDTH 56
-#define PROPERTY_TOP_ROW 6
-#define PROPERTY_BOTTOM_ROW 604
-#define PROPERTY_LEFT_COLUMN 7
-
-#define SQUARE_GO                      0
-#define SQUARE_INCOME_TAX              4
-#define SQUARE_READING_RR              5
-#define SQUARE_JUST_VISITING           10
-#define SQUARE_ELECTRIC_CO             12
-#define SQUARE_PENNSYLVANIA_RR         15
-#define SQUARE_FREE_PARKING            20
-#define SQUARE_BO_RR                   25
-#define SQUARE_WATER_WORKS             28
-#define SQUARE_GO_TO_JAIL              30
-#define SQUARE_SHORT_LINE_RR           35
-#define SQUARE_LUXURY_TAX              38
-#define SQUARE_IN_JAIL                 40
-
-
-typedef struct Player
-{
-   int token;              // which piece am I using?
-   int active;             // still in the game?
-   int location;           // which square am I currently on?
-   int money;              // how much cash do I have
-   int inJail;             // am I in jail?
-   int turnsLeftInJail;    // how long until I have to pay
-   int doublesCount;       // can only roll doubles 3 times before going to jail
-} Player;
-
-typedef struct Property
-{
-   char* name;             // printable property name
-   int value;              // original cost
-   int rent[MAX_HOUSES];   // how much visitors have to pay
-   int numHouses;          // how many houses are on the property
-   int owner;              // who owns it?
-   int mortgaged;          // is it mortgaged?
-   SDL_Rect loc;           // boundaries of the square on the board
-} Property;
+#include "game.h"
 
 static const char* piece_name[] =
 {
@@ -134,7 +86,11 @@ void StartGame(void)
 
    srand(time(NULL));
    currentPlayer = rand() % players;
-   fprintf(stderr, "player %i starts\n", currentPlayer);
+   fprintf(stderr, "player %s starts\n", player[currentPlayer].name);
+
+   SetCurrentPlayerStatusArea(&player[currentPlayer]);
+   EnableStatusArea();
+
    if (!messageBox)
    {
       messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
@@ -154,6 +110,7 @@ int HasAssets(int playerID)
 void GameOver(void)
 {
    gameOver = 1;
+   DisableStatusArea();
 }
 
 void PlayerOutOfBusiness(int playerID)
@@ -169,25 +126,25 @@ void PlayerOutOfBusiness(int playerID)
 
 void PayMoney(int from, int to, int amount)
 {
-      if (from != PLAYER_BANK)
+   if (from != PLAYER_BANK)
+   {
+      player[from].money -= amount;
+
+      // check to see if we are out of money
+      while (player[from].money < 0 && HasAssets(from))
       {
-         player[from].money -= amount;
-
-         // check to see if we are out of money
-         while (player[from].money < 0 && HasAssets(from))
-         {
-            fprintf(stderr, "Out of money!\n");
-            //LiquidateAssetsDlg();
-         }
-
-         if (player[from].money < 0)
-         {
-            PlayerOutOfBusiness(from);
-         }
+         fprintf(stderr, "Out of money!\n");
+         //LiquidateAssetsDlg();
       }
 
-      if (to != PLAYER_BANK)
-         player[to].money += amount;
+      if (player[from].money < 0)
+      {
+         PlayerOutOfBusiness(from);
+      }
+   }
+
+   if (to != PLAYER_BANK)
+      player[to].money += amount;
 }
 
 void DoneTurn(void)
@@ -212,6 +169,7 @@ void DoneTurn(void)
    currentPlayer = (currentPlayer + 1) % players;
    while (!player[currentPlayer].active)
       currentPlayer = (currentPlayer + 1) % players;
+   SetCurrentPlayerStatusArea(&player[currentPlayer]);
 
    fprintf(stderr, "player %i's turn\n", currentPlayer);
    if (!messageBox)
@@ -219,6 +177,20 @@ void DoneTurn(void)
       messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
       messageBox->el.OnMouseClick = OnMouseClick;
    }
+}
+
+void SetPlayerName(int id, const char* name)
+{
+   if (player[id].name)
+   {
+      free(player[id].name);
+      player[id].name = 0;
+   }
+
+   player[id].name = malloc(strlen(name) + 1);
+   strcpy(player[id].name, name);
+
+   fprintf(stderr, "set player %i name to %s\n", id, player[id].name);
 }
 
 void SetPlayerSquare(int id, int square)
@@ -251,6 +223,7 @@ int AddPlayer(int token, char* name)
    player[players].doublesCount = 0;
    SetPlayerSquare(players, 0);
    player[players].money = STARTING_CASH;
+   SetPlayerName(players, name);
    players++;
 
    
@@ -526,6 +499,9 @@ int main(int argc, char* args[])
       return 3;
    }
 
+   // start from a clean slate
+   GameOver();
+
    Run();
 
    fprintf(stderr, "Save game\n");
@@ -557,6 +533,14 @@ int main(int argc, char* args[])
    DeleteOptionsMenu();
 
    DestroyUI();
+   for (int i=0; i < MAX_PLAYERS; i++)
+   {
+      if (player[i].name)
+      {
+         free(player[i].name);
+         player[i].name = 0;
+      }
+   }
 
    return 0;
 }
