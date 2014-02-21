@@ -45,7 +45,9 @@ typedef struct Property
 {
    char* name;             // printable property name
    int value;              // original cost
-   int rent[MAX_HOUSES];   // how much visitors have to pay
+   int rent[MAX_HOUSES+1]; // how much visitors have to pay
+   int mortgage;           // mortgage value
+   int houseCost;          // how much does it cost to buy a house
    int numHouses;          // how many houses are on the property
    int owner;              // who owns it?
    int mortgaged;          // is it mortgaged?
