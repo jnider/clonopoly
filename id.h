@@ -18,6 +18,9 @@ enum
    ID_BTN_OPTIONS,
    ID_BTN_CANCEL,
    ID_BTN_OK,
+   ID_BTN_ROLL,
+   ID_BTN_BUY_SELL,
+   ID_BTN_TRADE,
    ID_BTN_LAST,
 
    // message boxes
@@ -33,6 +36,7 @@ enum
 
 #define ID_IMG_COUNT (ID_IMG_LAST - ID_IMG_BASE - 1)
 #define ID_BTN_COUNT (ID_BTN_LAST - ID_BTN_BASE - 1)
+#define BUTTON_INDEX(_a) (_a - ID_BTN_BASE - 1)
 
 #endif // _ID__H
 

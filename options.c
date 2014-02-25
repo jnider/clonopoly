@@ -63,7 +63,7 @@ void ShowOptionsMenu(void)
       menu->ifel->data = menu;
 
       // add a cancel button 
-      menu->cancelBtn = CreateButton(ID_BTN_CANCEL, menu->ifel, 50, 60, "graphics/cancel1.png", "graphics/cancel2.png", "graphics/cancel3.png");
+      menu->cancelBtn = CreatePngButton(ID_BTN_CANCEL, menu->ifel, 50, 60, "graphics/cancel1.png", "graphics/cancel2.png", "graphics/cancel3.png");
    }
 
    // set it active

@@ -11,6 +11,7 @@ static void Redraw(void);
 
 // SDL stuff
 TTF_Font* font;
+TTF_Font* buttonFont;
 static Ifel* currentEl;
 static Ifel* elFocus;
 static SDL_Surface* screen;
@@ -20,7 +21,6 @@ static int quit;
 
 void SetFocus(Ifel* el)
 {
-   fprintf(stderr, "SetFocus\n");
    elFocus = el;
 }
 
@@ -134,7 +134,7 @@ void DrawIfelChildren(Ifel* i)
 
 static void ModalOnKeyPressed(Ifel* el, int key)
 {
-   fprintf(stderr, "ModalOnKeyPressed\n");
+   //fprintf(stderr, "ModalOnKeyPressed\n");
    if (key == 'y' || key == 'Y')
       returnCode = MB_YES;
    if (key == 'n' || key == 'N')
@@ -143,7 +143,7 @@ static void ModalOnKeyPressed(Ifel* el, int key)
 
 int ModalMessageBox(int id, const char* msg)
 {
-   fprintf(stderr, "ModalMessageBox\n");
+   //fprintf(stderr, "ModalMessageBox\n");
    MessageBox* mb = CreateMessageBox(id, msg);
    mb->el.OnKeyPressed = ModalOnKeyPressed;
    Ifel* prevFocus = GetFocus();
@@ -304,6 +304,7 @@ void DrawButton(Ifel* i)
    //fprintf(stderr, "DrawButton\n");
    switch(btn->state)
    {
+   case BUTTON_DISABLED:
    case BUTTON_NORMAL:
       SDL_BlitSurface(btn->up, NULL, i->surface, NULL);
       break;
@@ -316,7 +317,84 @@ void DrawButton(Ifel* i)
    }
 }
 
-Button* CreateButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
+void DrawTextButton(Ifel* i)
+{
+   SDL_Surface* text;
+   SDL_Color textColor;
+   Button* btn = (Button*)i;
+   //fprintf(stderr, "DrawTextButton\n");
+
+   switch(btn->state)
+   {
+   case BUTTON_NORMAL:
+      textColor.r = 100;
+      textColor.g = 0;
+      textColor.b = 0;
+      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 0, 255);
+      break;
+   case BUTTON_PRESSED:
+      textColor.r = 50;
+      textColor.g = 0;
+      textColor.b = 0;
+      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 90, 90, 0, 255);
+      break;
+   case BUTTON_HOVER:
+      textColor.r = 150;
+      textColor.g = 0;
+      textColor.b = 0;
+      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 0, 255);
+      break;
+   case BUTTON_DISABLED:
+      textColor.r = 50;
+      textColor.g = 50;
+      textColor.b = 50;
+      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 100, 255);
+      break;
+   }
+
+   text = TTF_RenderText_Solid(buttonFont, btn->text, textColor);
+   if (!text)
+   {
+      fprintf(stderr, "Error rendering text\n");
+      return;
+   }
+
+   SDL_Rect loc;
+   loc.x = (i->surface->w - text->w) / 2;
+   loc.y = 0;
+   SDL_BlitSurface(text, NULL, i->surface, &loc);
+}
+
+Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg)
+{
+   Button* button = malloc(sizeof(Button));
+   if (!button)
+   {
+      fprintf(stderr, "Error allocating button\n");
+      return NULL;
+   }
+
+   memset(button, 0, sizeof(Button));
+
+   // set the internal variables
+   button->state = BUTTON_NORMAL;
+   button->el.loc.x = size->x;
+   button->el.loc.y = size->y;
+   button->el.loc.w = size->w;
+   button->el.loc.h = size->h;
+
+   // set button text
+   button->text = malloc(strlen(msg) + 1);
+   strcpy(button->text, msg);
+
+   // add it to the list of windows to draw
+   CreateIfel(id, parent, &button->el, IFEL_BUTTON, DrawTextButton);
+   button->el.active = 1;
+
+   return button;
+}
+
+Button* CreatePngButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
 {
    //fprintf(stderr, "CreateButton\n");
    Button* button = malloc(sizeof(Button));
@@ -369,6 +447,17 @@ img_up_fail:
    return NULL;
 }
 
+void EnableButton(Button* btn)
+{
+   btn->state = BUTTON_NORMAL;
+}
+
+void DisableButton(Button* btn)
+{
+   fprintf(stderr, "Disable Button\n");
+   btn->state = BUTTON_DISABLED;
+}
+
 void DeleteButton(Button* btn)
 {
    if (!btn)
@@ -409,6 +498,12 @@ int InitUI(void)
 
    font = TTF_OpenFont(fontName, 24);
    if (!font)
+   {
+      fprintf(stderr, "Can't load font %s\n", fontName);
+      returnCode = 3;
+   }
+   buttonFont = TTF_OpenFont(fontName, 40);
+   if (!buttonFont)
    {
       fprintf(stderr, "Can't load font %s\n", fontName);
       returnCode = 3;
@@ -504,7 +599,7 @@ static int DispatchEvents(void)
          switch (event.type)
          {
          case SDL_KEYDOWN:
-            fprintf(stderr, "key down\n");
+            //fprintf(stderr, "key down\n");
             if(elFocus->OnKeyPressed)
                elFocus->OnKeyPressed(elFocus, event.key.keysym.sym);
             break;
@@ -520,7 +615,7 @@ static int DispatchEvents(void)
                    event.button.y >= el->loc.y &&
                    event.button.y <= el->loc.y + el->loc.y)
                {
-                  if (el->type == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON && ((Button*)el)->state != BUTTON_DISABLED)
                   {
                      // if the button doesn't already have a button down state, mark it
                      if (((Button*)el)->state != BUTTON_PRESSED)
@@ -530,7 +625,7 @@ static int DispatchEvents(void)
                else
                {
                   // unmark all other elements
-                  if (el->type == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON && ((Button*)el)->state == BUTTON_HOVER)
                      ((Button*)el)->state = BUTTON_NORMAL;
                }
                el = GetNextIfel(&i);
@@ -548,7 +643,7 @@ static int DispatchEvents(void)
                    event.button.y <= el->loc.y + el->loc.y)
                {
                   currentEl = el; // remember where the button went down
-                  if (el->type == IFEL_BUTTON)
+                  if (el->type == IFEL_BUTTON && ((Button*)el)->state != BUTTON_DISABLED)
                      ((Button*)el)->state = BUTTON_PRESSED;
                   break;
                }
@@ -566,13 +661,17 @@ static int DispatchEvents(void)
                    event.button.y >= el->loc.y &&
                    event.button.y <= el->loc.y + el->loc.y)
                {
-                  if (el->type == IFEL_BUTTON)
-                  {
-                     ((Button*)el)->state = BUTTON_HOVER;
-                  }
                   // if the button came up on the same object on which it went down
                   if (currentEl == el)
                   {
+                     if (el->type == IFEL_BUTTON)
+                     {
+                        if (((Button*)el)->state == BUTTON_DISABLED)
+                           break;
+                        else
+                        ((Button*)el)->state = BUTTON_HOVER;
+                     }
+
                      if(el->OnMouseClick)
                         el->OnMouseClick(el);
                   }

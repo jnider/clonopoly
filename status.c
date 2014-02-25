@@ -22,17 +22,16 @@ static void DrawStatusArea(Ifel* i)
    SDL_Rect loc;
 
    // background
-   roundedBoxRGBA(s->surface, 0, 0, s->surface->w, s->surface->h, 10, 0, 255, 0, 100);
-
-   //printf("Name: %s\n", status->player->name);
+   roundedBoxRGBA(s->surface, 0, 0, s->surface->w, s->surface->h, 10, 100, 100, 0, 100);
+   roundedBoxRGBA(s->surface, 6, 6, s->surface->w-10, s->surface->h-10, 10, 0, 80, 0, 255);
 
    // current player's name
    SDL_Color textColor;
-   textColor.r = 0xFF;
+   textColor.r = 0x8F;
    textColor.g = 0x80;
    textColor.b = 0xFF;
    loc.x = 10;
-   loc.y = 4;
+   loc.y = 6;
    name = TTF_RenderText_Solid(font, status->player->name, textColor);
    if (!name)
    {
@@ -45,7 +44,7 @@ static void DrawStatusArea(Ifel* i)
    char tempText[64];
    sprintf(tempText, "$%i.00", status->player->money);
    money = TTF_RenderText_Solid(font, tempText, textColor);
-   loc.y = 30;
+   loc.y += 26;
    if (money)
    {
       SDL_BlitSurface(money, NULL, s->surface, &loc);

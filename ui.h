@@ -24,7 +24,8 @@ typedef enum ButtonState
 {
    BUTTON_NORMAL,
    BUTTON_PRESSED,
-   BUTTON_HOVER
+   BUTTON_HOVER,
+   BUTTON_DISABLED
 } ButtonState;
 
 struct Ifel;
@@ -64,6 +65,7 @@ typedef struct Button
    SDL_Surface* down;      // extend the normal interface by adding two more bitmaps (one for each state)
    SDL_Surface* hover;
    ButtonState state;      // remember the state of the button
+   char* text;
 } Button;
 
 typedef struct MessageBox
@@ -93,7 +95,10 @@ void DrawIfelChildren(Ifel* i);
 Image* CreateImage(int id, Ifel* parent, const char* bitmap);
 void DeleteImage(Image* img);
 
-Button* CreateButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover);
+Button* CreatePngButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover);
+Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg);
+void EnableButton(Button* btn);
+void DisableButton(Button* btn);
 void DeleteButton(Button* btn);
 
 MessageBox* CreateMessageBox(int id, const char* msg);

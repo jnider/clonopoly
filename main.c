@@ -90,12 +90,7 @@ void StartGame(void)
 
    SetCurrentPlayerStatusArea(&player[currentPlayer]);
    EnableStatusArea();
-
-   if (!messageBox)
-   {
-      messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
-      messageBox->el.OnMouseClick = OnMouseClick;
-   }
+   EnableButton(button[BUTTON_INDEX(ID_BTN_ROLL)]);
 }
 
 int HasAssets(int playerID)
@@ -175,11 +170,6 @@ void DoneTurn(void)
    SetCurrentPlayerStatusArea(&player[currentPlayer]);
 
    fprintf(stderr, "%s's turn\n", player[currentPlayer].name);
-   if (!messageBox)
-   {
-      messageBox = CreateMessageBox(ID_MSGBOX_ROLL, "Click to roll the dice");
-      messageBox->el.OnMouseClick = OnMouseClick;
-   }
 }
 
 void SetPlayerName(int id, const char* name)
@@ -359,7 +349,7 @@ void MovePlayer(int square)
          {
             player[currentPlayer].money -= board[endSquare].value; 
             board[endSquare].owner = currentPlayer;
-            printf("%i bought %s\n", currentPlayer, board[endSquare].name);
+            printf("%s bought %s\n", player[currentPlayer].name, board[endSquare].name);
          }
          else
          {
@@ -446,11 +436,16 @@ static void OnMouseClick(Ifel* i)
       break;
 
    case ID_MSGBOX_ROLL:
-      DeleteMessageBox(messageBox);
-      messageBox = NULL;
+   case ID_BTN_ROLL:
       RollDice();
       MovePlayer(ACCORDING_TO_DICE);
       break;
+   }
+
+   if (messageBox)
+   {
+      DeleteMessageBox(messageBox);
+      messageBox = NULL;
    }
 }
 
@@ -462,7 +457,7 @@ void OnKeyPressed(Ifel* el, int key)
       break;
 
    case 'n':
-      if (ModalMessageBox(ID_MSGBOX_NEW_GAME, "Start a new game?") == MB_YES)
+      if (gameOver || ModalMessageBox(ID_MSGBOX_NEW_GAME, "Start a new game?") == MB_YES)
       {
          AddPlayer(ID_IMG_SHOE, "Joel");
          AddPlayer(ID_IMG_DOG, "Merav");
@@ -503,24 +498,52 @@ int main(int argc, char* args[])
    }
 
    // load buttons
-   button[0] = CreateButton(ID_BTN_OPTIONS, NULL, 0, image[ID_IMG_BOARD]->el.loc.y + image[ID_IMG_BOARD]->el.loc.h,
-      "graphics/btn_options_1.png",
-      "graphics/btn_options_2.png",
-      "graphics/btn_options_3.png");
-   if (!button[0])
+   SDL_Rect posRect;
+   int index = BUTTON_INDEX(ID_BTN_OPTIONS);
+   //button[index] = CreatePngButton(ID_BTN_OPTIONS, NULL, 0, image[ID_IMG_BOARD]->el.loc.y + image[ID_IMG_BOARD]->el.loc.h,
+   //   "graphics/btn_options_1.png",
+   //   "graphics/btn_options_2.png",
+   //   "graphics/btn_options_3.png");
+   posRect.x = 0;
+   posRect.y = image[ID_IMG_BOARD]->el.loc.y + image[ID_IMG_BOARD]->el.loc.h;
+   posRect.w = 200;
+   posRect.h = 50;
+   button[index] = CreateTextButton(ID_BTN_OPTIONS, NULL, &posRect, "OPTIONS");
+   if (!button[index])
    {
       fprintf(stderr, "Can't create options button\n");
       return 2;
    }
-   button[0]->el.OnMouseClick = OnMouseClick;
+   button[index]->el.OnMouseClick = OnMouseClick;
+
+   index = BUTTON_INDEX(ID_BTN_ROLL);
+   posRect.x = button[BUTTON_INDEX(ID_BTN_OPTIONS)]->el.loc.x + button[BUTTON_INDEX(ID_BTN_OPTIONS)]->el.loc.w + 5;
+   button[index] = CreateTextButton(ID_BTN_ROLL, NULL, &posRect, "ROLL");
+   if (!button[index])
+   {
+      fprintf(stderr, "Can't create roll button\n");
+      return 2;
+   }
+   button[index]->el.OnMouseClick = OnMouseClick;
+   DisableButton(button[index]);
+
+   index = BUTTON_INDEX(ID_BTN_BUY_SELL);
+   posRect.x = button[BUTTON_INDEX(ID_BTN_ROLL)]->el.loc.x + button[BUTTON_INDEX(ID_BTN_ROLL)]->el.loc.w + 5;
+   button[index] = CreateTextButton(ID_BTN_ROLL, NULL, &posRect, "BUY/SELL");
+   if (!button[index])
+   {
+      fprintf(stderr, "Can't create buy/sell button\n");
+      return 2;
+   }
+   button[index]->el.OnMouseClick = OnMouseClick;
+   DisableButton(button[index]);
 
    // create status area
-   SDL_Rect statusRect;
-   statusRect.x = image[ID_IMG_BOARD]->el.loc.x + image[ID_IMG_BOARD]->el.loc.w;
-   statusRect.y = 0;
-   statusRect.w = 275;
-   statusRect.h = 600;
-   if (CreateStatusArea(&statusRect) != 0)
+   posRect.x = image[ID_IMG_BOARD]->el.loc.x + image[ID_IMG_BOARD]->el.loc.w;
+   posRect.y = 0;
+   posRect.w = 275;
+   posRect.h = 600;
+   if (CreateStatusArea(&posRect) != 0)
    {
       fprintf(stderr, "Can't create status area\n");
       return 3;
