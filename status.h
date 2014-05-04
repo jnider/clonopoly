@@ -6,6 +6,7 @@
 int CreateStatusArea(const SDL_Rect* loc);
 void DeleteStatusArea(void);
 void SetCurrentPlayerStatusArea(Player* p);
+void StatusAreaSetPlayerIconList(Image** l, int count);
 void DisableStatusArea(void);
 void EnableStatusArea(void);
 

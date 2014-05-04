@@ -548,6 +548,7 @@ int main(int argc, char* args[])
       fprintf(stderr, "Can't create status area\n");
       return 3;
    }
+   StatusAreaSetPlayerIconList(image, ID_IMG_COUNT);
 
    // start from a clean slate
    GameOver();

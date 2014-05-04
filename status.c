@@ -9,6 +9,8 @@ struct StatusArea
    Ifel* ifel;
    SDL_Surface* surface;
    Player* player;
+   Image** playerIconList;
+   int playerIconCount;
 };
 
 // our 'singleton'
@@ -120,3 +122,10 @@ void EnableStatusArea(void)
 {
    status->ifel->active = 1;
 }
+
+void StatusAreaSetPlayerIconList(Image** l, int count)
+{
+   status->playerIconList = l;
+   status->playerIconCount = count;
+}
+
