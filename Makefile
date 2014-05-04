@@ -9,5 +9,9 @@ C_SRC=main.c ui.c list.c options.c status.c
 all:
 	gcc $(CFLAGS) $(C_SRC) -o clonopoly -Wall -lSDL -lSDL_image -lSDL_gfx -lSDL_ttf
 
+clean:
+	rm -f *.o
+	rm -f clonopoly
+
 tags:
 	ctags -R -f tags . /usr/include/SDL/
