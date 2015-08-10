@@ -11,6 +11,8 @@
 #include "status.h"
 #include "game.h"
 
+Image* image[ID_IMG_COUNT];
+
 static const char* piece_name[] =
 {
    "piece_horse",
@@ -20,7 +22,6 @@ static const char* piece_name[] =
 };
 
 static MessageBox* messageBox;
-static Image* image[ID_IMG_COUNT];
 static Button* button[ID_BTN_COUNT];
 static int players;
 static Player player[MAX_PLAYERS]; // the actual players
@@ -88,6 +89,11 @@ void StartGame(void)
    currentPlayer = rand() % players;
    fprintf(stderr, "player %s starts\n", player[currentPlayer].name);
 
+   // reset ownership of all properties
+   Property* p = GetProperties();
+   for (int i=0; i < NUM_PROPERTIES; p++, i++)
+      p->owner = -1;
+   
    SetCurrentPlayerStatusArea(&player[currentPlayer]);
    EnableStatusArea();
    EnableButton(button[BUTTON_INDEX(ID_BTN_ROLL)]);
@@ -143,7 +149,17 @@ void PayMoney(int from, int to, int amount)
       player[to].money += amount;
 }
 
-void DoneTurn(void)
+static void StartTurn(void)
+{
+   SetCurrentPlayerStatusArea(&player[currentPlayer]);
+
+   fprintf(stderr, "%s's turn\n", player[currentPlayer].name);
+
+   if (player[currentPlayer].inJail)
+      fprintf(stderr, "%s is in jail\n", player[currentPlayer].name);
+}
+
+static void DoneTurn(void)
 {
    int count = 0;
 
@@ -167,9 +183,8 @@ void DoneTurn(void)
    currentPlayer = (currentPlayer + 1) % players;
    while (!player[currentPlayer].active)
       currentPlayer = (currentPlayer + 1) % players;
-   SetCurrentPlayerStatusArea(&player[currentPlayer]);
 
-   fprintf(stderr, "%s's turn\n", player[currentPlayer].name);
+   StartTurn();
 }
 
 void SetPlayerName(int id, const char* name)
@@ -200,6 +215,11 @@ int GetPlayerSquare(int id)
    return player[id].location;
 }
 
+Property* GetProperties(void)
+{
+   return board;
+}
+
 int AddPlayer(int token, char* name)
 {
    if (players >= MAX_PLAYERS)   
@@ -216,6 +236,7 @@ int AddPlayer(int token, char* name)
    SetPlayerSquare(players, 0);
    player[players].money = STARTING_CASH;
    SetPlayerName(players, name);
+   player[players].index = players;
    players++;
 
    
@@ -231,26 +252,35 @@ void RollDice(void)
    fprintf(stderr, "dice: %i %i\n", dice[0], dice[1]);
 }
 
-void MovePlayer(int square)
+static void MovePlayer(int square)
 {
    int startSquare = GetPlayerSquare(currentPlayer);
 
    if (square == ACCORDING_TO_DICE)
    {
-      if (dice[0] == dice[1])
-         player[currentPlayer].doublesCount++;
-      else
-         player[currentPlayer].doublesCount = 0;
-
-      // if the player is in jail, its a different set of rules
+      // first see if the player is in jail
       if (player[currentPlayer].inJail)
       {
-         player[currentPlayer].doublesCount = 0;
-         SetPlayerSquare(currentPlayer, SQUARE_JUST_VISITING);
-         startSquare = GetPlayerSquare(currentPlayer);
-         // from here, join the normal flow as if we had been in 'just visiting'
+         player[currentPlayer].doublesCount = 0; // can't accumulate doubles in jail
+
+         // if you got doubles, you're out!
+         if (dice[0] == dice[1])
+         {
+            SetPlayerSquare(currentPlayer, SQUARE_JUST_VISITING);
+            startSquare = GetPlayerSquare(currentPlayer);
+            // from here, join the normal flow as if we had been in 'just visiting'
+         }
+      }
+      else
+      {
+         // check for doubles
+         if (dice[0] == dice[1])
+            player[currentPlayer].doublesCount++;
+         else
+            player[currentPlayer].doublesCount = 0;
       }
 
+      // did you roll too many doubles in a row?
       if (player[currentPlayer].doublesCount == 3)
       {
          printf("Too many doubles - going to jail\n");
@@ -264,6 +294,7 @@ void MovePlayer(int square)
    }
    else
    {
+      // jump to a specific square, like 'jail', or something from a 'chance' or 'community chest'
       SetPlayerSquare(currentPlayer, square);
    }
 
@@ -274,7 +305,7 @@ void MovePlayer(int square)
    if ((endSquare != SQUARE_IN_JAIL) && (endSquare < startSquare))
    {
       printf("Passed GO - got $200\n");
-      player[currentPlayer].money += 200;
+      PayMoney(PLAYER_BANK, currentPlayer, 200);
    }
 
    // check the special squares first
@@ -337,15 +368,12 @@ void MovePlayer(int square)
       // otherwise, it is a property. Is it unowned?
       if (board[endSquare].owner == -1)
       {
-         if (player[currentPlayer].money < board[endSquare].value)
-         {
-            printf("auctions not implemented yet\n");
-            // Auction(endSquare); 
-         }
-
          char msg[100];
          sprintf(msg, "Would you like to buy %s? It costs $%i", board[endSquare].name, board[endSquare].value);
-         if (ModalMessageBox(ID_MSGBOX_BUY_PROPERTY, msg) == MB_YES)
+
+         // if you have enough money, do you want to buy the property?
+         if ((player[currentPlayer].money >= board[endSquare].value) &&
+            (ModalMessageBox(ID_MSGBOX_BUY_PROPERTY, msg) == MB_YES))
          {
             player[currentPlayer].money -= board[endSquare].value; 
             board[endSquare].owner = currentPlayer;
@@ -353,6 +381,7 @@ void MovePlayer(int square)
          }
          else
          {
+            // no money, or no will
             printf("auctions not implemented yet\n");
             // Auction(endSquare); 
          }
@@ -360,7 +389,8 @@ void MovePlayer(int square)
       else
       {
          int rent;
-         printf("owned\n");
+         int owner = board[endSquare].owner;
+         printf("owned by %s\n", player[owner].name);
          if (board[endSquare].mortgaged)
          {
             printf("mortgaged\n");
@@ -375,13 +405,13 @@ void MovePlayer(int square)
                int rrCount = 0;
 
                // count how many other railroads are owned
-               if (board[SQUARE_READING_RR].owner == currentPlayer)
+               if (board[SQUARE_READING_RR].owner == owner)
                   rrCount++;
-               if (board[SQUARE_PENNSYLVANIA_RR].owner == currentPlayer)
+               if (board[SQUARE_PENNSYLVANIA_RR].owner == owner)
                   rrCount++;
-               if (board[SQUARE_BO_RR].owner == currentPlayer)
+               if (board[SQUARE_BO_RR].owner == owner)
                   rrCount++;
-               if (board[SQUARE_SHORT_LINE_RR].owner == currentPlayer)
+               if (board[SQUARE_SHORT_LINE_RR].owner == owner)
                   rrCount++;
 
                // multiply the count by 50
@@ -392,9 +422,10 @@ void MovePlayer(int square)
             else if ( endSquare == SQUARE_ELECTRIC_CO
                || endSquare == SQUARE_WATER_WORKS)
             {
+               int owner = board[endSquare].owner;
                // one utility is x4, both utilities is x10
-               if (board[SQUARE_ELECTRIC_CO].owner == currentPlayer
-                  && board[SQUARE_WATER_WORKS].owner == currentPlayer)
+               if (board[SQUARE_ELECTRIC_CO].owner == owner
+                  && board[SQUARE_WATER_WORKS].owner == owner)
                   rent = (dice[0] + dice[1]) * 10;
                else
                   rent = (dice[0] + dice[1]) * 4;
@@ -425,6 +456,8 @@ void MovePlayer(int square)
    }
 }
 
+/* A generic function to handle all mouse clicks */
+/* Most likely this should be broken up for more modular logic */
 static void OnMouseClick(Ifel* i)
 {
    //fprintf(stderr, "OnMouseClick in %i\n", i->id);
@@ -432,7 +465,7 @@ static void OnMouseClick(Ifel* i)
    {
    case ID_BTN_OPTIONS:
       //fprintf(stderr, "Click in options button\n");
-      //ShowOptionsMenu();
+      ShowOptionsMenu();
       break;
 
    case ID_MSGBOX_ROLL:
@@ -447,6 +480,7 @@ static void OnMouseClick(Ifel* i)
       DeleteMessageBox(messageBox);
       messageBox = NULL;
    }
+   //fprintf(stderr, "OnMouseClick complete\n");
 }
 
 void OnKeyPressed(Ifel* el, int key)
@@ -553,6 +587,7 @@ int main(int argc, char* args[])
    // start from a clean slate
    GameOver();
 
+   // start the game
    Run();
 
    fprintf(stderr, "Save game\n");

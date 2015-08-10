@@ -4,6 +4,8 @@
 #include "SDL/SDL_gfxPrimitives.h"
 #include "game.h"
 
+extern Image* image[ID_IMG_COUNT];
+
 struct StatusArea
 {
    Ifel* ifel;
@@ -21,6 +23,7 @@ static void DrawStatusArea(Ifel* i)
    struct StatusArea* s = (struct StatusArea*)i->data;
    SDL_Surface* name;
    SDL_Surface* money;
+   SDL_Surface* prop_name;
    SDL_Rect loc;
 
    // background
@@ -52,6 +55,28 @@ static void DrawStatusArea(Ifel* i)
       SDL_BlitSurface(money, NULL, s->surface, &loc);
       SDL_FreeSurface(money);
    }
+
+   // player's token - right aligned
+   loc.x = s->surface->w - image[status->player->token]->surface->w; 
+   loc.y = 0;
+   SDL_BlitSurface(image[status->player->token]->surface, NULL, s->surface, &loc);
+
+   // owned properties
+   loc.x = 10;
+   loc.y = 55;
+   Property* p = GetProperties();
+   for (int prop=0; prop < NUM_PROPERTIES; prop++)
+   {
+      if (p->owner == status->player->index)
+      {
+         prop_name = TTF_RenderText_Solid(font, p->name, textColor);
+         SDL_BlitSurface(prop_name, NULL, s->surface, &loc);
+         SDL_FreeSurface(money);
+         loc.y += 20;
+      }
+      p++;
+   }
+
 
    SDL_BlitSurface(s->surface, NULL, i->surface, NULL);
 }

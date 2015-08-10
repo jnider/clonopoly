@@ -577,9 +577,9 @@ void Run(void)
 
 #if DEBUG
       // show property alignment
-      for (int i=0; i < NUM_PROPERTIES; i++)
-         rectangleColor(screen, board[i].loc.x, board[i].loc.y,
-            board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
+      //for (int i=0; i < NUM_PROPERTIES; i++)
+      //   rectangleColor(screen, board[i].loc.x, board[i].loc.y,
+      //      board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
 #endif
 
       Redraw();
@@ -592,7 +592,9 @@ static int DispatchEvents(void)
    Ifel* el;
    iterator i;
 
+#ifdef DEBUG
    //fprintf(stderr, "Dispatch\n");
+#endif // DEBUG
       // first handle any events
       while (SDL_PollEvent(&event))
       {
@@ -601,7 +603,16 @@ static int DispatchEvents(void)
          case SDL_KEYDOWN:
             //fprintf(stderr, "key down\n");
             if(elFocus->OnKeyPressed)
+            {
+#ifdef DEBUG
+               fprintf(stderr, "object id:%i type:%i OnKeyPressed\n", elFocus->id, elFocus->type);
+#endif // DEBUG
                elFocus->OnKeyPressed(elFocus, event.key.keysym.sym);
+            }
+#ifdef DEBUG
+            else
+               fprintf(stderr, "object with focus doesn't have OnKeyPressed method\n");
+#endif // DEBUG
             break;
 
          case SDL_MOUSEMOTION:

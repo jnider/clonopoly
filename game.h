@@ -31,6 +31,7 @@
 
 typedef struct Player
 {
+   int index;              // what player number am I? (index into player[])
    int token;              // which piece am I using?
    int active;             // still in the game?
    int location;           // which square am I currently on?
@@ -38,7 +39,7 @@ typedef struct Player
    int inJail;             // am I in jail?
    int turnsLeftInJail;    // how long until I have to pay
    int doublesCount;       // can only roll doubles 3 times before going to jail
-   char* name;
+   char* name;             // what's my name? -- should be unicode
 } Player;
 
 typedef struct Property
@@ -54,5 +55,7 @@ typedef struct Property
    SDL_Rect loc;           // boundaries of the square on the board
 } Property;
 
+// get the array of all properties
+Property* GetProperties(void);
 
 #endif // _GAME__H
