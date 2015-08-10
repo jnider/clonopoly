@@ -42,10 +42,26 @@ typedef struct Player
    char* name;             // what's my name? -- should be unicode
 } Player;
 
+enum PropertySet
+{
+   SET_NONE,      // anything that can't be owned (go, jail, CC/chance, income tax)
+   SET_RR,        // Railroads - Reading, Pennsylvania, B&O,  
+   SET_UTIL,      // Utilities - Electric co, Water works
+   SET_PURPLE,    // Mediterranean, Baltic
+   SET_LT_BLUE,   // Oriental, Vermont, Connecticut
+   SET_VIOLET,    // St. Charles, States, Virginia
+   SET_GOLD,      // St. James, Tennessee, New York
+   SET_RED,       // Kentucky, Indiana, Illinois
+   SET_YELLOW,    // Atlantic, Ventnor, Marvin
+   SET_GREEN,     // Pacific, N.Carolina, Pennsylvania
+   SET_BLUE,      // Park Place, Boardwalk
+};
+
 typedef struct Property
 {
    char* name;             // printable property name
    int value;              // original cost
+   int set;                // which set does this property belong to?
    int rent[MAX_HOUSES+1]; // how much visitors have to pay
    int mortgage;           // mortgage value
    int houseCost;          // how much does it cost to buy a house

@@ -6,8 +6,14 @@ CFLAGS=-std=c99 -O2
 
 C_SRC=main.c ui.c list.c options.c status.c
 
+CFLAGS += -DDEBUG
+
+.PHONY:
+	tags
+
 all:
 	gcc $(CFLAGS) $(C_SRC) -o clonopoly -Wall -lSDL -lSDL_image -lSDL_gfx -lSDL_ttf
+
 
 clean:
 	rm -f *.o

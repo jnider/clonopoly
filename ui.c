@@ -555,6 +555,8 @@ static void Redraw(void)
       {
          el->draw(el);
          DrawIfelChildren(el);
+         rectangleColor(el->surface, el->loc.x, el->loc.y,
+            el->loc.x + el->loc.w - 1, el->loc.y + el->loc.h - 1, 0xFF00FF);
          SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
       }
       el = GetNextIfel(&i);
@@ -575,17 +577,15 @@ void Run(void)
          break;
       }
 
-#if DEBUG
-      // show property alignment
-      //for (int i=0; i < NUM_PROPERTIES; i++)
-      //   rectangleColor(screen, board[i].loc.x, board[i].loc.y,
-      //      board[i].loc.x + board[i].loc.w, board[i].loc.y + board[i].loc.h, 0xFF00FF);
-#endif
-
       Redraw();
    }
 }
 
+/* This is the main event loop for the UI. The SDL subsystem captures all
+   input devices (mouse, keyboard) and converts input into events. This
+   function handles those events by passing them to the appropriate handler
+   depending on various parameters such as the object with focus, or
+   location of the mouse. */
 static int DispatchEvents(void)
 {
    SDL_Event event;
@@ -604,9 +604,7 @@ static int DispatchEvents(void)
             //fprintf(stderr, "key down\n");
             if(elFocus->OnKeyPressed)
             {
-#ifdef DEBUG
-               fprintf(stderr, "object id:%i type:%i OnKeyPressed\n", elFocus->id, elFocus->type);
-#endif // DEBUG
+               //fprintf(stderr, "object id:%i type:%i OnKeyPressed\n", elFocus->id, elFocus->type);
                elFocus->OnKeyPressed(elFocus, event.key.keysym.sym);
             }
 #ifdef DEBUG
@@ -624,11 +622,11 @@ static int DispatchEvents(void)
                if (event.button.x >= el->loc.x &&
                    event.button.x <= el->loc.x + el->loc.w &&
                    event.button.y >= el->loc.y &&
-                   event.button.y <= el->loc.y + el->loc.y)
+                   event.button.y <= el->loc.y + el->loc.h)
                {
                   if (el->type == IFEL_BUTTON && ((Button*)el)->state != BUTTON_DISABLED)
                   {
-                     // if the button doesn't already have a button down state, mark it
+                     // if the button isn't pressed, mark it as hover
                      if (((Button*)el)->state != BUTTON_PRESSED)
                         ((Button*)el)->state = BUTTON_HOVER;
                   }
@@ -651,9 +649,12 @@ static int DispatchEvents(void)
                if (event.button.x >= el->loc.x &&
                    event.button.x <= el->loc.x + el->loc.w &&
                    event.button.y >= el->loc.y &&
-                   event.button.y <= el->loc.y + el->loc.y)
+                   event.button.y <= el->loc.y + el->loc.h)
                {
                   currentEl = el; // remember where the button went down
+                  //fprintf(stderr, "mouse down on %i (state %i)\n", el->id, ((Button*)el)->state);
+                  //fprintf(stderr, "event.x = %i event.y = %i\n", event.button.x, event.button.y);
+                  //fprintf(stderr, "el.x = %i el.y = %i\n", el->loc.x, el->loc.y);
                   if (el->type == IFEL_BUTTON && ((Button*)el)->state != BUTTON_DISABLED)
                      ((Button*)el)->state = BUTTON_PRESSED;
                   break;
@@ -670,7 +671,7 @@ static int DispatchEvents(void)
                if (event.button.x >= el->loc.x &&
                    event.button.x <= el->loc.x + el->loc.w &&
                    event.button.y >= el->loc.y &&
-                   event.button.y <= el->loc.y + el->loc.y)
+                   event.button.y <= el->loc.y + el->loc.h)
                {
                   // if the button came up on the same object on which it went down
                   if (currentEl == el)
