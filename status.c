@@ -3,6 +3,8 @@
 #include "options.h"
 #include "SDL/SDL_gfxPrimitives.h"
 #include "game.h"
+#include "property.h"
+#include "board.h"
 
 extern Image* image[ID_IMG_COUNT];
 
@@ -13,6 +15,7 @@ struct StatusArea
    Player* player;
    Image** playerIconList;
    int playerIconCount;
+   CClonopolyBoard& board;
 };
 
 // our 'singleton'
@@ -64,17 +67,16 @@ static void DrawStatusArea(Ifel* i)
    // owned properties
    loc.x = 10;
    loc.y = 55;
-   Property* p = GetProperties();
    for (int prop=0; prop < NUM_PROPERTIES; prop++)
    {
-      if (p->owner == status->player->index)
+      CProperty& p = s->board.Property(prop);
+      if (p.Owner() == status->player->index)
       {
-         prop_name = TTF_RenderText_Solid(font, p->name, textColor);
+         prop_name = TTF_RenderText_Solid(font, p.Name().c_str(), textColor);
          SDL_BlitSurface(prop_name, NULL, s->surface, &loc);
          SDL_FreeSurface(money);
          loc.y += 20;
       }
-      p++;
    }
 
 
@@ -86,7 +88,7 @@ int CreateStatusArea(const SDL_Rect* loc)
    // if it doesn't exist yet, create it
    if (!status)
    {
-      status = malloc(sizeof(struct StatusArea));
+      status = (struct StatusArea*)malloc(sizeof(struct StatusArea));
       if (!status)
          return 1;
 
@@ -101,7 +103,7 @@ int CreateStatusArea(const SDL_Rect* loc)
       }
 
       // create the ifel
-      status->ifel = malloc(sizeof(struct Ifel));
+      status->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
       if (!status->ifel)
       {
          free(status);

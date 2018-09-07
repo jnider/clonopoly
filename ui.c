@@ -185,7 +185,7 @@ MessageBox* CreateMessageBox(int id, const char* msg)
       return NULL;
    }
 
-   MessageBox* mb = malloc(sizeof(MessageBox));
+   MessageBox* mb = (MessageBox*)malloc(sizeof(MessageBox));
    //fprintf(stderr, "Creating messagebox\n");
    if (!mb)
    {
@@ -255,7 +255,7 @@ Image* CreateImage(int id, Ifel* parent, const char* bitmap)
    //fprintf(stderr, "Creating image id %i\n", id);
 
    // create the object
-   Image* img = malloc(sizeof(Image));
+   Image* img = (Image*)malloc(sizeof(Image));
    if (!img)
    {
       fprintf(stderr, "Can't create image %s\n", bitmap);
@@ -367,7 +367,7 @@ void DrawTextButton(Ifel* i)
 
 Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg)
 {
-   Button* button = malloc(sizeof(Button));
+   Button* button = (Button*)malloc(sizeof(Button));
    if (!button)
    {
       fprintf(stderr, "Error allocating button\n");
@@ -384,7 +384,7 @@ Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg)
    button->el.loc.h = size->h;
 
    // set button text
-   button->text = malloc(strlen(msg) + 1);
+   button->text = (char*)malloc(strlen(msg) + 1);
    strcpy(button->text, msg);
 
    // add it to the list of windows to draw
@@ -397,7 +397,7 @@ Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg)
 Button* CreatePngButton(int id, Ifel* parent, int x, int y, const char* img_up, const char* img_down, const char* img_hover)
 {
    //fprintf(stderr, "CreateButton\n");
-   Button* button = malloc(sizeof(Button));
+   Button* button = (Button*)malloc(sizeof(Button));
    if (!button)
    {
       fprintf(stderr, "Error allocating button\n");

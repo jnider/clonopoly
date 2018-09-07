@@ -10,6 +10,7 @@
 #include "options.h"
 #include "status.h"
 #include "game.h"
+#include "board.h"
 
 #define IS_RAILROAD(_s) (_s == SQUARE_READING_RR || _s == SQUARE_PENNSYLVANIA_RR || _s == SQUARE_BO_RR || _s == SQUARE_SHORT_LINE_RR)
 
@@ -31,6 +32,7 @@ static int currentPlayer;
 static int dice[2];
 static int gameOver;
 static void OnMouseClick(Ifel* i);
+static CClonopolyBoard board;
 
 void StartGame(void)
 {
@@ -42,10 +44,7 @@ void StartGame(void)
    currentPlayer = rand() % players;
    fprintf(stderr, "player %s starts\n", player[currentPlayer].name);
 
-   // reset ownership of all properties
-   Property* p = GetProperties();
-   for (int i=0; i < NUM_PROPERTIES; p++, i++)
-      p->owner = -1;
+   board.Reset();
    
    SetCurrentPlayerStatusArea(&player[currentPlayer]);
    EnableStatusArea();
@@ -150,7 +149,7 @@ void SetPlayerName(int id, const char* name)
       player[id].name = 0;
    }
 
-   player[id].name = malloc(strlen(name) + 1);
+   player[id].name = (char*)malloc(strlen(name) + 1);
    strcpy(player[id].name, name);
 
    fprintf(stderr, "set player %i name to %s\n", id, player[id].name);
@@ -159,10 +158,10 @@ void SetPlayerName(int id, const char* name)
 void SetPlayerSquare(int id, int square)
 {
    player[id].location = square;
-   image[player[id].token]->el.loc.w = board[square].loc.w;
-   image[player[id].token]->el.loc.h = board[square].loc.h;
-   image[player[id].token]->el.loc.x = board[square].loc.x + ((image[player[id].token]->el.loc.w - image[player[id].token]->el.loc.w) >> 1); // without the brackets on the >> this doesn't calculate right
-   image[player[id].token]->el.loc.y = board[square].loc.y + image[player[id].token]->el.loc.h - image[player[id].token]->el.loc.h;
+   image[player[id].token]->el.loc.w = board.Property(square).Location().w;
+   image[player[id].token]->el.loc.h = board.Property(square).Location().h;
+   image[player[id].token]->el.loc.x = board.Property(square).Location().x + ((image[player[id].token]->el.loc.w - image[player[id].token]->el.loc.w) >> 1); // without the brackets on the >> this doesn't calculate right
+   image[player[id].token]->el.loc.y = board.Property(square).Location().y + image[player[id].token]->el.loc.h - image[player[id].token]->el.loc.h;
 }
 
 int GetPlayerSquare(int id)
@@ -170,12 +169,7 @@ int GetPlayerSquare(int id)
    return player[id].location;
 }
 
-Property* GetProperties(void)
-{
-   return board;
-}
-
-int AddPlayer(int token, char* name)
+int AddPlayer(int token, const char* name)
 {
    if (players >= MAX_PLAYERS)   
    {
@@ -275,7 +269,7 @@ static void MovePlayer(int square)
    }
 
    int endSquare = GetPlayerSquare(currentPlayer);
-   printf("%s landed on %s\n", player[currentPlayer].name, board[endSquare].name);
+   //printf("%s landed on %s\n", player[currentPlayer].name, board[endSquare].name);
 
    // did you pass go? (and not go to jail)
    if ((endSquare != SQUARE_IN_JAIL) && (endSquare < startSquare))
@@ -342,23 +336,24 @@ static void MovePlayer(int square)
    if (!handled)
    {
       // otherwise, it is a property. Is it unowned?
-      if (board[endSquare].owner == -1)
+      if (board.Property(endSquare).Owner() == -1)
       {
          char msg[100];
 
          // if you have enough money, do you want to buy the property?
-         if (player[currentPlayer].money < board[endSquare].value) 
+         if (player[currentPlayer].money < board.Property(endSquare).Value()) 
          {
             printf("You don't have enough money!\n");
             goto nomoney;
          }
 
-         sprintf(msg, "Would you like to buy %s? It costs $%i", board[endSquare].name, board[endSquare].value);
+         sprintf(msg, "Would you like to buy %s? It costs $%i", board.Property(endSquare).Name().c_str(),
+            board.Property(endSquare).Value());
          if (ModalMessageBox(ID_MSGBOX_BUY_PROPERTY, msg) == MB_YES)
          {
-            player[currentPlayer].money -= board[endSquare].value; 
-            board[endSquare].owner = currentPlayer;
-            printf("%s bought %s\n", player[currentPlayer].name, board[endSquare].name);
+            player[currentPlayer].money -= board.Property(endSquare).Value(); 
+            board.Property(endSquare).SetOwner(currentPlayer);
+            //printf("%s bought %s\n", player[currentPlayer].name, board[endSquare].name);
 
             // check to see if the player owns a set
          }
@@ -374,7 +369,7 @@ nomoney:
       {
          // property is already owned
          int rent;
-         int owner = board[endSquare].owner;
+         int owner = board.Property(endSquare).Owner();
          if (owner == currentPlayer)
          {
             printf("owned by you!\n");
@@ -382,7 +377,7 @@ nomoney:
          else
          {
             printf("owned by %s\n", player[owner].name);
-            if (board[endSquare].mortgaged)
+            if (board.Property(endSquare).IsMortgaged())
             {
                printf("mortgaged\n");
             }
@@ -393,36 +388,36 @@ nomoney:
                   int rrCount = 0;
 
                   // count how many railroads are owned
-                  if (board[SQUARE_READING_RR].owner == owner)
+                  if (board.Property(SQUARE_READING_RR).Owner() == owner)
                      rrCount++;
-                  if (board[SQUARE_PENNSYLVANIA_RR].owner == owner)
+                  if (board.Property(SQUARE_PENNSYLVANIA_RR).Owner() == owner)
                      rrCount++;
-                  if (board[SQUARE_BO_RR].owner == owner)
+                  if (board.Property(SQUARE_BO_RR).Owner() == owner)
                      rrCount++;
-                  if (board[SQUARE_SHORT_LINE_RR].owner == owner)
+                  if (board.Property(SQUARE_SHORT_LINE_RR).Owner() == owner)
                      rrCount++;
 
                   // double rent for each additional railroad
-                  rent = board[endSquare].rent[0] << (rrCount-1);
+                  rent = board.Property(endSquare).Rent() << (rrCount-1);
                }
                else if ( endSquare == SQUARE_ELECTRIC_CO
                      || endSquare == SQUARE_WATER_WORKS)
                {
-                  int owner = board[endSquare].owner;
+                  int owner = board.Property(endSquare).Owner();
                   // one utility is x4, both utilities is x10
-                  if (board[SQUARE_ELECTRIC_CO].owner == owner
-                     && board[SQUARE_WATER_WORKS].owner == owner)
+                  if (board.Property(SQUARE_ELECTRIC_CO).Owner() == owner
+                     && board.Property(SQUARE_WATER_WORKS).Owner() == owner)
                      rent = (dice[0] + dice[1]) * 10;
                   else
                      rent = (dice[0] + dice[1]) * 4;
                }
                else
                {
-                  rent = board[endSquare].rent[board[endSquare].numHouses];
+                  rent = board.Property(endSquare).Rent();
                }
                printf("%s owes %i in rent\n", player[currentPlayer].name, rent);
    
-               PayMoney(currentPlayer, board[endSquare].owner, rent);
+               PayMoney(currentPlayer, board.Property(endSquare).Owner(), rent);
             }
          }
       }

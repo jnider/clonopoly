@@ -33,7 +33,7 @@ void ShowOptionsMenu(void)
    // if it doesn't exist yet, create it
    if (!menu)
    {
-      menu = malloc(sizeof(struct OptionsMenu));
+      menu = (struct OptionsMenu*)malloc(sizeof(struct OptionsMenu));
       if (!menu)
          return;
 
@@ -48,7 +48,7 @@ void ShowOptionsMenu(void)
       }
 
       // create the ifel
-      menu->ifel = malloc(sizeof(struct Ifel));
+      menu->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
       if (!menu->ifel)
       {
          free(menu);

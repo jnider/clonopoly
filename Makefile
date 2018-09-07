@@ -1,11 +1,11 @@
-CFLAGS=-std=c99 -O2
+CFLAGS=-O2
 
 #libsdl-gfx1.2-dev
 #libsdl-image1.2-dev
 #libsdl-ttf2.0-dev
 #fonts-freefont-ttf
 
-C_SRC=main.c ui.c list.c options.c status.c
+CPP_SRC=main.c ui.c list.c options.c status.c board.cpp property.cpp
 
 CFLAGS += -DDEBUG
 
@@ -13,7 +13,7 @@ CFLAGS += -DDEBUG
 	tags
 
 all:
-	gcc $(CFLAGS) $(C_SRC) -o clonopoly -Wall -lSDL -lSDL_image -lSDL_gfx -lSDL_ttf
+	g++ $(CFLAGS) $(CPP_SRC) -o clonopoly -Wall -lSDL -lSDL_image -lSDL_gfx -lSDL_ttf
 
 
 clean:

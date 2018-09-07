@@ -24,7 +24,7 @@ static void dump(list* l)
 
 list* ListCreate(void)
 {
-   list* head = malloc(sizeof(list));
+   list* head = (list*)malloc(sizeof(list));
    if (!head)
       return NULL;
 
@@ -58,7 +58,7 @@ void ListDestroy(list* l)
 int ListAddNode(list* l, void* data)
 {
    // create the node
-   node* temp = malloc(sizeof(node));
+   node* temp = (node*)malloc(sizeof(node));
    if (!temp)
       return 1;
 
