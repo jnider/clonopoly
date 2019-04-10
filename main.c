@@ -32,6 +32,9 @@ static int currentPlayer;
 static int dice[2];
 static int gameOver;
 static void OnMouseClick(Ifel* i);
+
+/* The board keeps most of the game state. The UI updates from the board
+   to show the users what's going on. */
 static CClonopolyBoard board;
 
 void StartGame(void)
@@ -158,10 +161,10 @@ void SetPlayerName(int id, const char* name)
 void SetPlayerSquare(int id, int square)
 {
    player[id].location = square;
-   image[player[id].token]->el.loc.w = board.Property(square).Location().w;
-   image[player[id].token]->el.loc.h = board.Property(square).Location().h;
-   image[player[id].token]->el.loc.x = board.Property(square).Location().x + ((image[player[id].token]->el.loc.w - image[player[id].token]->el.loc.w) >> 1); // without the brackets on the >> this doesn't calculate right
-   image[player[id].token]->el.loc.y = board.Property(square).Location().y + image[player[id].token]->el.loc.h - image[player[id].token]->el.loc.h;
+   image[player[id].token]->el.loc.w = board.Property(square).m_loc.w;
+   image[player[id].token]->el.loc.h = board.Property(square).m_loc.h;
+   image[player[id].token]->el.loc.x = board.Property(square).m_loc.x + ((image[player[id].token]->el.loc.w - image[player[id].token]->el.loc.w) >> 1); // without the brackets on the >> this doesn't calculate right
+   image[player[id].token]->el.loc.y = board.Property(square).m_loc.y + image[player[id].token]->el.loc.h - image[player[id].token]->el.loc.h;
 }
 
 int GetPlayerSquare(int id)
@@ -336,23 +339,23 @@ static void MovePlayer(int square)
    if (!handled)
    {
       // otherwise, it is a property. Is it unowned?
-      if (board.Property(endSquare).Owner() == -1)
+      if (board.Property(endSquare).m_owner == -1)
       {
          char msg[100];
 
          // if you have enough money, do you want to buy the property?
-         if (player[currentPlayer].money < board.Property(endSquare).Value()) 
+         if (player[currentPlayer].money < board.Property(endSquare).m_value) 
          {
             printf("You don't have enough money!\n");
             goto nomoney;
          }
 
-         sprintf(msg, "Would you like to buy %s? It costs $%i", board.Property(endSquare).Name().c_str(),
-            board.Property(endSquare).Value());
+         sprintf(msg, "Would you like to buy %s? It costs $%i", board.Property(endSquare).m_name.c_str(),
+            board.Property(endSquare).m_value);
          if (ModalMessageBox(ID_MSGBOX_BUY_PROPERTY, msg) == MB_YES)
          {
-            player[currentPlayer].money -= board.Property(endSquare).Value(); 
-            board.Property(endSquare).SetOwner(currentPlayer);
+            player[currentPlayer].money -= board.Property(endSquare).m_value; 
+            board.Property(endSquare).m_owner = currentPlayer;
             //printf("%s bought %s\n", player[currentPlayer].name, board[endSquare].name);
 
             // check to see if the player owns a set
@@ -369,7 +372,7 @@ nomoney:
       {
          // property is already owned
          int rent;
-         int owner = board.Property(endSquare).Owner();
+         int owner = board.Property(endSquare).m_owner;
          if (owner == currentPlayer)
          {
             printf("owned by you!\n");
@@ -377,7 +380,7 @@ nomoney:
          else
          {
             printf("owned by %s\n", player[owner].name);
-            if (board.Property(endSquare).IsMortgaged())
+            if (board.Property(endSquare).m_mortgaged)
             {
                printf("mortgaged\n");
             }
@@ -388,36 +391,38 @@ nomoney:
                   int rrCount = 0;
 
                   // count how many railroads are owned
-                  if (board.Property(SQUARE_READING_RR).Owner() == owner)
+                  if (board.Property(SQUARE_READING_RR).m_owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_PENNSYLVANIA_RR).Owner() == owner)
+                  if (board.Property(SQUARE_PENNSYLVANIA_RR).m_owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_BO_RR).Owner() == owner)
+                  if (board.Property(SQUARE_BO_RR).m_owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_SHORT_LINE_RR).Owner() == owner)
+                  if (board.Property(SQUARE_SHORT_LINE_RR).m_owner == owner)
                      rrCount++;
 
                   // double rent for each additional railroad
-                  rent = board.Property(endSquare).Rent() << (rrCount-1);
+                  int houses = board.Property(endSquare).m_numHouses;
+                  rent = board.Property(endSquare).m_rent[houses] << (rrCount-1);
                }
                else if ( endSquare == SQUARE_ELECTRIC_CO
                      || endSquare == SQUARE_WATER_WORKS)
                {
-                  int owner = board.Property(endSquare).Owner();
+                  int owner = board.Property(endSquare).m_owner;
                   // one utility is x4, both utilities is x10
-                  if (board.Property(SQUARE_ELECTRIC_CO).Owner() == owner
-                     && board.Property(SQUARE_WATER_WORKS).Owner() == owner)
+                  if (board.Property(SQUARE_ELECTRIC_CO).m_owner == owner
+                     && board.Property(SQUARE_WATER_WORKS).m_owner == owner)
                      rent = (dice[0] + dice[1]) * 10;
                   else
                      rent = (dice[0] + dice[1]) * 4;
                }
                else
                {
-                  rent = board.Property(endSquare).Rent();
+                  int houses = board.Property(endSquare).m_numHouses;
+                  rent = board.Property(endSquare).m_rent[houses];
                }
                printf("%s owes %i in rent\n", player[currentPlayer].name, rent);
    
-               PayMoney(currentPlayer, board.Property(endSquare).Owner(), rent);
+               PayMoney(currentPlayer, board.Property(endSquare).m_owner, rent);
             }
          }
       }
@@ -502,7 +507,7 @@ int main(int argc, char* args[])
       image[i] = CreateImage(i, NULL, filename);
       if (!image[i])
       {
-         fprintf(stderr, "Can't load image\n");
+         fprintf(stderr, "Can't load image %s\n", filename);
 
          // unload all successfully loaded pieces
          for (int j=i-1; j >=ID_IMG_HORSE; j--)

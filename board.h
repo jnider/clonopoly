@@ -29,11 +29,11 @@ class CClonopolyBoard
 public:
    CClonopolyBoard();
    void Reset(); /* reset the board back to initial positions */
-   CProperty& Property(int square); /* how much does this property cost to buy? */
+   property& Property(int square);
 
 private:
    int owner[NUM_PROPERTIES];
-   static CProperty m_board[NUM_PROPERTIES];
+   static property m_board[NUM_PROPERTIES];
 };
 
 #endif // _BOARD__H

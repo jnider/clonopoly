@@ -1,4 +1,4 @@
-CFLAGS=-O2
+CFLAGS=-O2 -std=c++11
 
 #libsdl-gfx1.2-dev
 #libsdl-image1.2-dev

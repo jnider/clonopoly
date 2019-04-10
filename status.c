@@ -69,10 +69,10 @@ static void DrawStatusArea(Ifel* i)
    loc.y = 55;
    for (int prop=0; prop < NUM_PROPERTIES; prop++)
    {
-      CProperty& p = s->board.Property(prop);
-      if (p.Owner() == status->player->index)
+      property& p = s->board.Property(prop);
+      if (p.m_owner == status->player->index)
       {
-         prop_name = TTF_RenderText_Solid(font, p.Name().c_str(), textColor);
+         prop_name = TTF_RenderText_Solid(font, p.m_name.c_str(), textColor);
          SDL_BlitSurface(prop_name, NULL, s->surface, &loc);
          SDL_FreeSurface(money);
          loc.y += 20;

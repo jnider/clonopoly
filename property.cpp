@@ -1,16 +1,12 @@
 #include "property.h"
 
-CProperty::CProperty() : m_owner(-1)
+CProperty::CProperty()
 {
 }
 
-/*
-CProperty::CProperty(const char* name, int val, PropertySet, int* rent, int mortgage, int cost, SDL_Rect& loc)
-{
-}
-*/
-
-CProperty::CProperty(const char* name) : m_name(name)
+CProperty::CProperty(const char* name, int value, PropertySet set, int rent[], int mortgage, int houseCost, int x, int y, int w, int h)
+ : m_name(name), m_value(value), m_set(set), m_mortgage(mortgage), m_houseCost(houseCost), m_owner(-1),
+   m_mortgaged(false)
 {
 }
 

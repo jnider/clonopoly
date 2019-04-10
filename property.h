@@ -25,7 +25,7 @@ class CProperty
 public:
    CProperty();
    //CProperty(const char* name, int val, PropertySet, int* rent, int mortgage, int cost);
-   CProperty(const char* name);
+   CProperty(const char* name, int value, PropertySet set, int rent[], int mortgage, int houseCost, int x, int y, int w, int h);
    ~CProperty();
 
    int Rent() { return m_rent[m_numHouses]; }
@@ -39,7 +39,7 @@ public:
 private:
    const std::string m_name; // printable property name
    int m_value;              // original cost
-   int m_set;                // which set does this property belong to?
+   enum PropertySet m_set;   // which set does this property belong to?
    int m_rent[MAX_HOUSES+1]; // how much visitors have to pay
    int m_mortgage;           // mortgage value
    int m_houseCost;          // how much does it cost to buy a house
@@ -48,5 +48,19 @@ private:
    bool m_mortgaged;          // is it mortgaged?
    SDL_Rect m_loc;           // boundaries of the square on the board
 };
+
+typedef struct property
+{
+   const std::string m_name; // printable property name
+   int m_value;              // original cost
+   enum PropertySet m_set;   // which set does this property belong to?
+   int m_rent[MAX_HOUSES+1]; // how much visitors have to pay
+   int m_mortgage;           // mortgage value
+   int m_houseCost;          // how much does it cost to buy a house
+   int m_numHouses;          // how many houses are on the property
+   int m_owner;              // who owns it?
+   bool m_mortgaged;          // is it mortgaged?
+   SDL_Rect m_loc;           // boundaries of the square on the board
+} property;
 
 #endif // _PROPERTY__H
