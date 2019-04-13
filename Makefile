@@ -5,7 +5,7 @@ CFLAGS=-O2 -std=c++11
 #libsdl-ttf2.0-dev
 #fonts-freefont-ttf
 
-CPP_SRC=main.c ui.c list.c options.c status.c board.cpp property.cpp
+CPP_SRC=main.c ui.c ui_game_sdl.cpp list.c options.c board.cpp game.cpp player.cpp
 
 CFLAGS += -DDEBUG
 

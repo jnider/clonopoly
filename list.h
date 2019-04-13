@@ -25,5 +25,9 @@ int ListRemoveNode(list* l, void* data);
 node* ListGetPointerFromData(void* data);
 void* ListGetData(node* n);
 
+// read-only iteration
+void* ListGetFirst(list*, iterator* i);
+void* ListGetNext(iterator* i);
+
 #endif // _LIST__H
 

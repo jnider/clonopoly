@@ -6,7 +6,7 @@
 #include "property.h"
 #include "board.h"
 
-extern Image* image[ID_IMG_COUNT];
+//extern Image* image[ID_IMG_COUNT];
 
 struct StatusArea
 {

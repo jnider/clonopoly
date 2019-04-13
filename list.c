@@ -159,3 +159,22 @@ void* ListGetData(node* n)
    return n->data;
 }
 
+void* ListGetFirst(list* l, iterator* i)
+{
+   if (!l)
+      return 0;
+
+   i = (iterator*)malloc(sizeof(iterator));
+   *i = l->first;
+
+   return ListGetData(*i);
+}
+
+void* ListGetNext(iterator* i)
+{
+   *i = (*i)->next;
+   if (*i)
+      return ListGetData(*i);
+   return 0;
+}
+

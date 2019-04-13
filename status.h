@@ -1,7 +1,7 @@
 #ifndef _STATUS__H
 #define _STATUS__H
 
-#include "game.h"
+#include "player.h"
 
 int CreateStatusArea(const SDL_Rect* loc);
 void DeleteStatusArea(void);

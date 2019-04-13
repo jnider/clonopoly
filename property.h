@@ -2,8 +2,10 @@
 #define _PROPERTY__H
 
 #include <string>
-#include "SDL/SDL.h"
-#include "game.h"
+#include "SDL/SDL.h" // SDL_Rect
+//#include "game.h"
+
+#define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
 
 enum PropertySet
 {
@@ -20,6 +22,7 @@ enum PropertySet
    SET_BLUE,      // Park Place, Boardwalk
 };
 
+/*
 class CProperty
 {
 public:
@@ -48,6 +51,7 @@ private:
    bool m_mortgaged;          // is it mortgaged?
    SDL_Rect m_loc;           // boundaries of the square on the board
 };
+*/
 
 typedef struct property
 {
@@ -58,8 +62,8 @@ typedef struct property
    int m_mortgage;           // mortgage value
    int m_houseCost;          // how much does it cost to buy a house
    int m_numHouses;          // how many houses are on the property
-   int m_owner;              // who owns it?
-   bool m_mortgaged;          // is it mortgaged?
+   int m_owner;               // who owns it?
+   bool m_mortgaged;         // is it mortgaged?
    SDL_Rect m_loc;           // boundaries of the square on the board
 } property;
 

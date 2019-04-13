@@ -61,13 +61,6 @@ CClonopolyBoard::CClonopolyBoard()
 {
 }
 
-void CClonopolyBoard::Reset()
-{
-   // reset ownership of all properties
-   for (int i=0; i < NUM_PROPERTIES; i++)
-      owner[i] = -1;
-}
-
 property& CClonopolyBoard::Property(int square)
 {
    return m_board[square];
