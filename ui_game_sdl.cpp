@@ -13,14 +13,37 @@ static const char* piece_name[] =
    "piece_bag"
 };
 
-static void DrawStatusCB(Ifel *i)
+static void DrawCB(Ifel *i)
 {
    CSDLGameUI* ui = (CSDLGameUI*)i->data;
-   ui->DrawStatusArea();
+   fprintf(stderr, "Draw ui id=%i\n", i->id);
+   switch(i->id)
+   {
+   case ID_STATUS:
+      ui->DrawStatusArea(i);
+      break;
+   case ID_SPLASH:
+      ui->DrawSplash(i);
+      break;
+   default:
+      fprintf(stderr, "Unknown ID\n");
+   }
+}
+
+CSDLGameUI::CSDLGameUI() : messageBox(NULL),
+                           status(NULL),
+                           splash(NULL)
+{
 }
 
 int CSDLGameUI::Init(IfelOnKeyPressedFn kp, IfelOnMouseClickFn mc)
 {
+   if (InitUI() != 0)
+   {
+      fprintf(stderr, "Can't init UI\n");
+      return 1;
+   }
+
    image[ID_IMG_BOARD] = CreateImage(ID_IMG_BOARD, NULL, "graphics/board.png");
    image[ID_IMG_BOARD]->el.OnKeyPressed = kp;
 
@@ -96,8 +119,69 @@ int CSDLGameUI::Init(IfelOnKeyPressedFn kp, IfelOnMouseClickFn mc)
    }
    StatusAreaSetPlayerIconList(image, ID_IMG_COUNT);
 
+   // create splash screen
+   posRect.x = 50;
+   posRect.y = 50;
+   posRect.w = 100;
+   posRect.h = 100;
+   if (CreateSplashScreen(&posRect) != 0)
+   {
+      fprintf(stderr, "Can't create splash screen\n");
+      return 3;
+   }
+   
    return 0;
 }
+
+int CSDLGameUI::CreateSplashScreen(const SDL_Rect *loc)
+{
+   fprintf(stderr, "creating splash screen\n");
+
+   // if it doesn't exist yet, create it
+   if (!splash)
+   {
+      splash = (struct SplashScreen*)malloc(sizeof(struct SplashScreen));
+      if (!splash)
+         return 1;
+
+      // create the surface
+      splash->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, loc->w, loc->h, 32, 0, 0, 0, 0);
+      if (!splash->surface)
+      {
+         fprintf(stderr, "Error creating splash area surface\n");
+         free(splash);
+         splash = NULL;
+         return 2;
+      }
+
+      // create the ifel
+      splash->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
+      if (!splash->ifel)
+      {
+         free(splash);
+         SDL_FreeSurface(splash->surface);
+         return 3;
+      }
+      splash->ifel->loc.x = loc->x;
+      splash->ifel->loc.y = loc->y;
+      splash->ifel->loc.w = loc->w;
+      splash->ifel->loc.h = loc->h;
+      CreateIfel(ID_SPLASH, NULL, splash->ifel, IFEL_CUSTOM, DrawCB);
+      splash->ifel->data = this;
+   }
+
+   // set it active
+   splash->ifel->active = 1;
+
+   return 0;
+}
+
+void CSDLGameUI::SplashScreen()
+{
+   fprintf(stderr, "drawing splash screen\n");
+   roundedBoxRGBA(status->surface, 0, 0, splash->surface->w, splash->surface->h, 10, 100, 50, 50, 100);
+}
+
 
 void CSDLGameUI::DisableStatusArea()
 {
@@ -129,7 +213,25 @@ CSDLGameUI::~CSDLGameUI()
       DeleteButton(button[i-ID_BTN_BASE]);
    }
    DeleteOptionsMenu();
-   DeleteStatusArea();
+
+   // delete status area
+   if (status)
+   {
+      DeleteIfel(NULL, status->ifel);
+      free(status->ifel);
+      free(status);
+      status = NULL;
+   }
+
+   // delete splash screen
+   if (splash)
+   {
+      DeleteIfel(NULL, splash->ifel);
+      free(splash->ifel);
+      free(splash);
+      splash = NULL;
+   }
+
    DestroyUI();
 }
 
@@ -179,13 +281,14 @@ void CSDLGameUI::ShowOptionsMenu()
 {
 }
 
-void CSDLGameUI::DrawStatusArea()
+void CSDLGameUI::DrawStatusArea(Ifel *i)
 {
    SDL_Surface* name;
    SDL_Surface* money;
    SDL_Surface* prop_name;
    SDL_Rect loc;
 
+   fprintf(stderr, "DrawStatusArea\n");
    // background
    roundedBoxRGBA(status->surface, 0, 0, status->surface->w, status->surface->h, 10, 100, 100, 0, 100);
    roundedBoxRGBA(status->surface, 6, 6, status->surface->w-10, status->surface->h-10, 10, 0, 80, 0, 255);
@@ -235,8 +338,8 @@ void CSDLGameUI::DrawStatusArea()
       p = status->player->GetNextProperty();
    }
 
-   // don't remember what this was for
-   //SDL_BlitSurface(status->surface, NULL, i->surface, NULL);
+   // draw the status area on the screen
+   SDL_BlitSurface(status->surface, NULL, i->surface, NULL);
 }
 
 int CSDLGameUI::CreateStatusArea(const SDL_Rect* loc)
@@ -270,8 +373,8 @@ int CSDLGameUI::CreateStatusArea(const SDL_Rect* loc)
       status->ifel->loc.y = loc->y;
       status->ifel->loc.w = loc->w;
       status->ifel->loc.h = loc->h;
-      CreateIfel(ID_MENU_OPTIONS, NULL, status->ifel, IFEL_CUSTOM, DrawStatusCB);
-      status->ifel->data = status;
+      CreateIfel(ID_STATUS, NULL, status->ifel, IFEL_CUSTOM, DrawCB);
+      status->ifel->data = this;
    }
 
    // set it active
@@ -301,5 +404,11 @@ void CSDLGameUI::StatusAreaSetPlayerIconList(Image** l, int count)
 
 void CSDLGameUI::EnableStatusArea(void)
 {
+}
+
+void CSDLGameUI::DrawSplash(Ifel* i)
+{
+   roundedBoxRGBA(splash->surface, 0, 0, splash->surface->w, splash->surface->h, 10, 100, 50, 50, 100);
+   SDL_BlitSurface(splash->surface, NULL, i->surface, NULL);
 }
 

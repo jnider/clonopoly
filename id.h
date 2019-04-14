@@ -31,7 +31,9 @@ enum
 
    // custom
    ID_MENU_BASE = 300,
-   ID_MENU_OPTIONS
+   ID_MENU_OPTIONS,
+   ID_STATUS,
+   ID_SPLASH,
 };
 
 #define ID_IMG_COUNT (ID_IMG_LAST - ID_IMG_BASE - 1)

@@ -14,11 +14,19 @@ struct StatusArea
    //CClonopolyBoard& board;
 };
 
+struct SplashScreen
+{
+   Ifel* ifel;
+   SDL_Surface* surface;
+};
+
 class CSDLGameUI : public CGameUI
 {
 public:
+   CSDLGameUI();
    ~CSDLGameUI();
    int Init(IfelOnKeyPressedFn kp, IfelOnMouseClickFn mc);
+   void SplashScreen();
    void SetPlayerSquare(int id, const SDL_Rect& loc);
    void SetTokenActive(int id);
    void Doubles(IfelOnMouseClickFn mc);
@@ -32,15 +40,18 @@ public:
    void StatusAreaSetPlayerIconList(Image** l, int count);
    void DisableStatusArea(void);
    void EnableStatusArea(void);
-   void DrawStatusArea();
+   void DrawStatusArea(Ifel *i);
+   void DrawSplash(Ifel* i);
 
 protected:
    int CreateStatusArea(const SDL_Rect* loc);
+   int CreateSplashScreen(const SDL_Rect* loc);
 
 protected:
    Image* image[ID_IMG_COUNT];
    MessageBox* messageBox;
    struct StatusArea* status;
+   struct SplashScreen* splash;
 };
 
 #endif // _GAME_UI_SDL__H

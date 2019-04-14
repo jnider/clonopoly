@@ -547,6 +547,9 @@ static void Redraw(void)
 {
    // now redraw the screen by running through all Ifels in DFS manner
    //fprintf(stderr, "Redraw\n");
+   if (elFocus)
+      fprintf(stderr, "Focus: %i\n", elFocus->id);
+
    iterator i;
    Ifel* el = GetFirstIfel(NULL, &i);
    while(el)
@@ -579,6 +582,13 @@ void Run(void)
 
       Redraw();
    }
+}
+
+void Quit(void)
+{
+   SDL_Event event;
+   event.type = SDL_QUIT;
+   SDL_PushEvent(&event);
 }
 
 /* This is the main event loop for the UI. The SDL subsystem captures all

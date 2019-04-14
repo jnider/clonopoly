@@ -10,6 +10,7 @@ class CGameUI
 public:
    virtual ~CGameUI() {};
    virtual int Init(IfelOnKeyPressedFn kp, IfelOnMouseClickFn mc)=0;
+   virtual void SplashScreen()=0;
    virtual void SetTokenActive(int id)=0;
    virtual void Doubles(IfelOnMouseClickFn mc)=0;
    virtual bool BuyProperty(const property& p)=0;
@@ -22,6 +23,8 @@ public:
    virtual void StatusAreaSetPlayerIconList(Image** l, int count)=0;
    virtual void DisableStatusArea(void)=0;
    virtual void EnableStatusArea(void)=0;
+   virtual void DrawStatusArea(Ifel *i)=0;
+   virtual void DrawSplash(Ifel* i)=0;
 };
 
 #endif // _GAME_UI__H

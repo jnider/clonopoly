@@ -105,5 +105,7 @@ MessageBox* CreateMessageBox(int id, const char* msg);
 void DeleteMessageBox(MessageBox* mb);
 int ModalMessageBox(int id, const char* msg);
 
+void Quit(void);
+
 #endif // _UI__H
 
