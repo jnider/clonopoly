@@ -5,6 +5,7 @@ CFLAGS=-O2 -std=c++11
 #libsdl-ttf2.0-dev
 #fonts-freefont-ttf
 
+
 CPP_SRC=main.c ui.c ui_game_sdl.cpp list.c options.c board.cpp game.cpp player.cpp
 
 CFLAGS += -DDEBUG
@@ -13,7 +14,7 @@ CFLAGS += -DDEBUG
 	tags
 
 all:
-	g++ $(CFLAGS) $(CPP_SRC) -o clonopoly -Wall -lSDL -lSDL_image -lSDL_gfx -lSDL_ttf
+	g++ $(CFLAGS) $(CPP_SRC) -o clonopoly -Wall -lSDL2 -lSDL2_image -lSDL2_gfx -lSDL2_ttf
 
 
 clean:
@@ -21,4 +22,7 @@ clean:
 	rm -f clonopoly
 
 tags:
-	ctags -R -f tags . /usr/include/SDL/
+	ctags -R -f tags . /usr/include/SDL2
+
+prereq:
+	apt install libsdl2-dev libsdl2-ttf-dev libsdl2-net-dev libsdl2-image-dev libsdl2-gfx-dev

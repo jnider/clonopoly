@@ -1,7 +1,7 @@
 #include "ui.h"
 #include "id.h"
 #include "options.h"
-#include "SDL/SDL_gfxPrimitives.h"
+#include "SDL2/SDL2_gfxPrimitives.h"
 
 #define WIDTH 300
 #define HEIGHT 200
@@ -9,7 +9,8 @@
 struct OptionsMenu
 {
    Ifel* ifel;
-   SDL_Surface* surface;
+   //SDL_Surface* surface;
+   SDL_Renderer *renderer;
    Button* cancelBtn;
 };
 
@@ -23,12 +24,12 @@ static void DrawOptionsMenu(Ifel* i)
    //fprintf(stderr, "DrawOptionsMenu\n");
 
    // draw it
-   roundedBoxRGBA(menu->surface, 0, 0, WIDTH, HEIGHT, 10, 0, 255, 0, 100);
+   roundedBoxRGBA(menu->renderer, 0, 0, WIDTH, HEIGHT, 10, 0, 255, 0, 100);
 
-   SDL_BlitSurface(menu->surface, NULL, i->surface, NULL);
+   //SDL_BlitSurface(menu->surface, NULL, i->surface, NULL);
 }
 
-void ShowOptionsMenu(void)
+void ShowOptionsMenu(SDL_Renderer *renderer)
 {
    // if it doesn't exist yet, create it
    if (!menu)
@@ -37,6 +38,7 @@ void ShowOptionsMenu(void)
       if (!menu)
          return;
 
+/*
       // create the surface
       menu->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, WIDTH, HEIGHT, 32, 0, 0, 0, 0);
       if (!menu->surface)
@@ -46,13 +48,14 @@ void ShowOptionsMenu(void)
          menu = NULL;
          return;
       }
+*/
 
       // create the ifel
       menu->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
       if (!menu->ifel)
       {
          free(menu);
-         SDL_FreeSurface(menu->surface);
+         //SDL_FreeSurface(menu->surface);
          return;
       }
       menu->ifel->loc.x = 100;

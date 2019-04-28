@@ -1,7 +1,7 @@
 #include "ui_game_sdl.h"
 #include "options.h"
 #include "property.h"
-#include "SDL/SDL_gfxPrimitives.h"
+#include "SDL2/SDL2_gfxPrimitives.h"
 
 static Button* button[ID_BTN_COUNT];
 
@@ -144,6 +144,7 @@ int CSDLGameUI::CreateSplashScreen(const SDL_Rect *loc)
       if (!splash)
          return 1;
 
+/*
       // create the surface
       splash->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, loc->w, loc->h, 32, 0, 0, 0, 0);
       if (!splash->surface)
@@ -153,13 +154,14 @@ int CSDLGameUI::CreateSplashScreen(const SDL_Rect *loc)
          splash = NULL;
          return 2;
       }
+*/
 
       // create the ifel
       splash->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
       if (!splash->ifel)
       {
-         free(splash);
-         SDL_FreeSurface(splash->surface);
+         //free(splash);
+         //SDL_FreeSurface(splash->surface);
          return 3;
       }
       splash->ifel->loc.x = loc->x;
@@ -179,7 +181,7 @@ int CSDLGameUI::CreateSplashScreen(const SDL_Rect *loc)
 void CSDLGameUI::SplashScreen()
 {
    fprintf(stderr, "drawing splash screen\n");
-   roundedBoxRGBA(status->surface, 0, 0, splash->surface->w, splash->surface->h, 10, 100, 50, 50, 100);
+   roundedBoxRGBA(splash->renderer, 0, 0, splash->loc.w, splash->loc.h, 10, 100, 50, 50, 100);
 }
 
 
@@ -290,8 +292,8 @@ void CSDLGameUI::DrawStatusArea(Ifel *i)
 
    fprintf(stderr, "DrawStatusArea\n");
    // background
-   roundedBoxRGBA(status->surface, 0, 0, status->surface->w, status->surface->h, 10, 100, 100, 0, 100);
-   roundedBoxRGBA(status->surface, 6, 6, status->surface->w-10, status->surface->h-10, 10, 0, 80, 0, 255);
+   roundedBoxRGBA(status->renderer, 0, 0, status->loc.w, status->loc.h, 10, 100, 100, 0, 100);
+   roundedBoxRGBA(status->renderer, 6, 6, status->loc.w-10, status->loc.h-10, 10, 0, 80, 0, 255);
 
    // current player's name
    SDL_Color textColor;
@@ -305,8 +307,8 @@ void CSDLGameUI::DrawStatusArea(Ifel *i)
    {
       fprintf(stderr, "Error rendering name\n");
    }
-   SDL_BlitSurface(name, NULL, status->surface, &loc);
-   SDL_FreeSurface(name);
+   //SDL_BlitSurface(name, NULL, status->surface, &loc);
+   //SDL_FreeSurface(name);
 
    // remaining money
    char tempText[64];
@@ -315,14 +317,14 @@ void CSDLGameUI::DrawStatusArea(Ifel *i)
    loc.y += 26;
    if (money)
    {
-      SDL_BlitSurface(money, NULL, status->surface, &loc);
-      SDL_FreeSurface(money);
+      //SDL_BlitSurface(money, NULL, status->surface, &loc);
+      //SDL_FreeSurface(money);
    }
 
    // player's token - right aligned
-   loc.x = status->surface->w - image[status->player->token]->surface->w; 
+   loc.x = status->loc.w - image[status->player->token]->el.loc.w; 
    loc.y = 0;
-   SDL_BlitSurface(image[status->player->token]->surface, NULL, status->surface, &loc);
+   //SDL_BlitSurface(image[status->player->token]->surface, NULL, status->surface, &loc);
 
    // draw the list of properties owned by the current player
    loc.x = 10;
@@ -332,14 +334,14 @@ void CSDLGameUI::DrawStatusArea(Ifel *i)
    while (p)
    {
       prop_name = TTF_RenderText_Solid(font, p->m_name.c_str(), textColor);
-      SDL_BlitSurface(prop_name, NULL, status->surface, &loc);
-      SDL_FreeSurface(money);
+      //SDL_BlitSurface(prop_name, NULL, status->surface, &loc);
+      //SDL_FreeSurface(money);
       loc.y += 20;
       p = status->player->GetNextProperty();
    }
 
    // draw the status area on the screen
-   SDL_BlitSurface(status->surface, NULL, i->surface, NULL);
+   //SDL_BlitSurface(status->surface, NULL, i->surface, NULL);
 }
 
 int CSDLGameUI::CreateStatusArea(const SDL_Rect* loc)
@@ -351,6 +353,7 @@ int CSDLGameUI::CreateStatusArea(const SDL_Rect* loc)
       if (!status)
          return 1;
 
+/*
       // create the surface
       status->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, loc->w, loc->h, 32, 0, 0, 0, 0);
       if (!status->surface)
@@ -360,13 +363,14 @@ int CSDLGameUI::CreateStatusArea(const SDL_Rect* loc)
          status = NULL;
          return 2;
       }
+*/
 
       // create the ifel
       status->ifel = (struct Ifel*)malloc(sizeof(struct Ifel));
       if (!status->ifel)
       {
          free(status);
-         SDL_FreeSurface(status->surface);
+         //SDL_FreeSurface(status->surface);
          return 3;
       }
       status->ifel->loc.x = loc->x;
@@ -408,7 +412,7 @@ void CSDLGameUI::EnableStatusArea(void)
 
 void CSDLGameUI::DrawSplash(Ifel* i)
 {
-   roundedBoxRGBA(splash->surface, 0, 0, splash->surface->w, splash->surface->h, 10, 100, 50, 50, 100);
-   SDL_BlitSurface(splash->surface, NULL, i->surface, NULL);
+   roundedBoxRGBA(splash->renderer, 0, 0, splash->loc.w, splash->loc.h, 10, 100, 50, 50, 100);
+   //SDL_BlitSurface(splash->surface, NULL, i->surface, NULL);
 }
 

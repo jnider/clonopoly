@@ -2,7 +2,7 @@
 #define _PROPERTY__H
 
 #include <string>
-#include "SDL/SDL.h" // SDL_Rect
+#include "SDL2/SDL.h" // SDL_Rect
 //#include "game.h"
 
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)

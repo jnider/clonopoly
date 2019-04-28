@@ -7,7 +7,9 @@
 struct StatusArea
 {
    Ifel* ifel;
-   SDL_Surface* surface;
+   //SDL_Surface* surface;
+   SDL_Renderer *renderer;
+   SDL_Rect loc;
    Player* player;
    Image** playerIconList;
    int playerIconCount;
@@ -17,7 +19,9 @@ struct StatusArea
 struct SplashScreen
 {
    Ifel* ifel;
-   SDL_Surface* surface;
+   //SDL_Surface* surface;
+   SDL_Renderer *renderer;
+   SDL_Rect loc;
 };
 
 class CSDLGameUI : public CGameUI

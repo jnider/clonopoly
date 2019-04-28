@@ -1,6 +1,8 @@
-#include "SDL/SDL_image.h"
-#include "SDL/SDL_gfxPrimitives.h"
-#include "SDL/SDL_ttf.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_video.h>
+#include "SDL2/SDL_image.h"
+#include "SDL2/SDL2_gfxPrimitives.h"
+#include "SDL2/SDL_ttf.h"
 #include "ui.h"
 #include "list.h"
 
@@ -14,10 +16,18 @@ TTF_Font* font;
 TTF_Font* buttonFont;
 static Ifel* currentEl;
 static Ifel* elFocus;
-static SDL_Surface* screen;
+static SDL_Window* window;
+static SDL_Renderer* renderer;
 static list* ifels;
 static int returnCode;
 static int quit;
+
+/*
+static int roundedBoxRGBA(SDL_Surface *surface, int x, int y, int w, int h, int t, int r, int g, int b, int a)
+{
+   return 0;
+}
+*/
 
 void SetFocus(Ifel* el)
 {
@@ -49,8 +59,8 @@ int DeleteIfel(Ifel* parent, Ifel* child)
       l = parent->ifels;
 
    ListRemoveNode(l, child);
-   SDL_FreeSurface(child->surface);
-   child->surface = NULL;
+   //SDL_FreeSurface(child->surface);
+   //child->surface = NULL;
    
    return 0;
 }
@@ -92,8 +102,10 @@ Ifel* CreateIfel(int id, Ifel* parent, Ifel* me, IfelType type, IfelDrawFn draw)
    me->id = id;
    me->type = type;
    me->draw = draw;
+   me->renderer = parent->renderer;
    me->ifels = ListCreate();
    
+/*
    // create the drawing surface
    me->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, me->loc.w, me->loc.h, 32, 0, 0, 0, 0);
    if (!me->surface)
@@ -101,7 +113,8 @@ Ifel* CreateIfel(int id, Ifel* parent, Ifel* me, IfelType type, IfelDrawFn draw)
       fprintf(stderr, "Error creating window surface\n");
       return NULL;
    }
-   SDL_SetColorKey(me->surface, SDL_SRCCOLORKEY, 0);
+   //SDL_SetColorKey(me->surface, SDL_SRCCOLORKEY, 0);
+*/
 
    // add it to the list of windows to draw
    if (!parent)
@@ -126,7 +139,7 @@ void DrawIfelChildren(Ifel* i)
       {
             el->draw(el);
             DrawIfelChildren(el);
-            SDL_BlitSurface(el->surface, NULL, i->surface, &el->loc);
+            //SDL_BlitSurface(el->surface, NULL, i->surface, &el->loc);
       }
       el = GetNextIfel(&iter);
    }
@@ -143,6 +156,17 @@ static void ModalOnKeyPressed(Ifel* el, int key)
 
 int ModalMessageBox(int id, const char* msg)
 {
+   return SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "title", msg, NULL);
+/*
+   if (SDL_ShowMessageBox(&data, &buttonid) < 0)
+   {
+      fprintf(stderr, "Error displaying messagebox\n");
+      free(mb);
+      return NULL;
+   }
+*/
+   
+/*
    //fprintf(stderr, "ModalMessageBox\n");
    MessageBox* mb = CreateMessageBox(id, msg);
    mb->el.OnKeyPressed = ModalOnKeyPressed;
@@ -164,6 +188,7 @@ int ModalMessageBox(int id, const char* msg)
    // clean up and return
    SetFocus(prevFocus);
    DeleteMessageBox(mb);
+*/
 
    return returnCode;
 }
@@ -179,6 +204,7 @@ void DrawMessageBox(Ifel* i)
 
 MessageBox* CreateMessageBox(int id, const char* msg)
 {
+/*
    SDL_Surface* text;
    if (!font)
    {
@@ -215,8 +241,10 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    mb->el.loc.h = text->h + (MESSAGE_BOX_MARGIN * 2);
    
    // set the location of the window on the screen
-   mb->el.loc.x = (screen->w - mb->el.loc.w) / 2;
-   mb->el.loc.y = (screen->h - mb->el.loc.h) / 2;
+   int w, h;
+   SDL_GetWindowSize(window, &w, &h);
+   mb->el.loc.x = (w - mb->el.loc.w) / 2;
+   mb->el.loc.y = (h - mb->el.loc.h) / 2;
 
    // add it to the list of windows to draw
    CreateIfel(id, NULL, (Ifel*)mb, IFEL_MESSAGEBOX, DrawMessageBox);
@@ -234,6 +262,9 @@ MessageBox* CreateMessageBox(int id, const char* msg)
    mb->el.active = 1;
    
    return mb;
+*/
+
+   return NULL;
 }
 
 void DeleteMessageBox(MessageBox* mb)
@@ -247,7 +278,8 @@ void DeleteMessageBox(MessageBox* mb)
 void DrawImage(Ifel* i)
 {
    Image* img = (Image*)i;
-   SDL_BlitSurface(img->surface, NULL, i->surface, NULL);
+   //SDL_BlitSurface(img->surface, NULL, i->surface, NULL);
+   SDL_RenderCopy(img->el.renderer, img->texture, &img->loc, &img->el.loc);
 }
 
 Image* CreateImage(int id, Ifel* parent, const char* bitmap)
@@ -264,18 +296,22 @@ Image* CreateImage(int id, Ifel* parent, const char* bitmap)
    memset(img, 0, sizeof(Image));
 
    // load the image from disk
-   img->surface = IMG_Load(bitmap);
-   if (!img->surface)
+   SDL_Surface *surface = IMG_Load(bitmap);
+   if (!surface)
    {
       fprintf(stderr, "Can't load image %s\n", bitmap);
       free(img);
       return NULL;
    }
 
+   img->texture = SDL_CreateTextureFromSurface(img->el.renderer, surface);
+   SDL_FreeSurface(surface);
+   surface = NULL;
+
    img->el.loc.x = 0;
    img->el.loc.y = 0;
-   img->el.loc.w = img->surface->w;
-   img->el.loc.h = img->surface->h;
+   img->el.loc.w = img->loc.w;
+   img->el.loc.h = img->loc.h;
 
    // add it to the list of windows to draw
    CreateIfel(id, parent, &img->el, IFEL_IMAGE, DrawImage);
@@ -294,7 +330,7 @@ void DeleteImage(Image* img)
    }
 
    DeleteIfel(NULL, &img->el);
-   SDL_FreeSurface(img->surface);
+   //SDL_FreeSurface(img->surface);
    free(img);
 }
 
@@ -306,13 +342,13 @@ void DrawButton(Ifel* i)
    {
    case BUTTON_DISABLED:
    case BUTTON_NORMAL:
-      SDL_BlitSurface(btn->up, NULL, i->surface, NULL);
+      //SDL_BlitSurface(btn->up, NULL, i->surface, NULL);
       break;
    case BUTTON_PRESSED:
-      SDL_BlitSurface(btn->down, NULL, i->surface, NULL);
+      //SDL_BlitSurface(btn->down, NULL, i->surface, NULL);
       break;
    case BUTTON_HOVER:
-      SDL_BlitSurface(btn->hover, NULL, i->surface, NULL);
+      //SDL_BlitSurface(btn->hover, NULL, i->surface, NULL);
       break;
    }
 }
@@ -330,25 +366,25 @@ void DrawTextButton(Ifel* i)
       textColor.r = 100;
       textColor.g = 0;
       textColor.b = 0;
-      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 0, 255);
+      roundedBoxRGBA(i->renderer, 0, 0, i->loc.w, i->loc.h, 10, 100, 100, 0, 255);
       break;
    case BUTTON_PRESSED:
       textColor.r = 50;
       textColor.g = 0;
       textColor.b = 0;
-      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 90, 90, 0, 255);
+      roundedBoxRGBA(i->renderer, 0, 0, i->loc.w, i->loc.h, 10, 90, 90, 0, 255);
       break;
    case BUTTON_HOVER:
       textColor.r = 150;
       textColor.g = 0;
       textColor.b = 0;
-      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 0, 255);
+      roundedBoxRGBA(i->renderer, 0, 0, i->loc.w, i->loc.h, 10, 100, 100, 0, 255);
       break;
    case BUTTON_DISABLED:
       textColor.r = 50;
       textColor.g = 50;
       textColor.b = 50;
-      roundedBoxRGBA(i->surface, 0, 0, i->surface->w, i->surface->h, 10, 100, 100, 100, 255);
+      roundedBoxRGBA(i->renderer, 0, 0, i->loc.w, i->loc.h, 10, 100, 100, 100, 255);
       break;
    }
 
@@ -360,9 +396,10 @@ void DrawTextButton(Ifel* i)
    }
 
    SDL_Rect loc;
-   loc.x = (i->surface->w - text->w) / 2;
+   loc.x = (i->loc.w - text->w) / 2;
    loc.y = 0;
-   SDL_BlitSurface(text, NULL, i->surface, &loc);
+   //SDL_BlitSurface(text, NULL, i->surface, &loc);
+   //SDL_RenderCopy(i->renderer, btn->texture, &loc, &i->loc);
 }
 
 Button* CreateTextButton(int id, Ifel* parent, SDL_Rect* size, const char* msg)
@@ -405,31 +442,42 @@ Button* CreatePngButton(int id, Ifel* parent, int x, int y, const char* img_up, 
    }
 
    memset(button, 0, sizeof(Button));
+   SDL_Surface *surface;
 
-   button->up = IMG_Load(img_up);
-   if (!button->up)
+   surface = IMG_Load(img_up);
+   if (!surface)
    {
       fprintf(stderr, "Can't load image %s\n", img_up);
       goto img_up_fail;
    }
-   button->down = IMG_Load(img_down);
-   if (!button->down)
+   button->up = SDL_CreateTextureFromSurface(button->el.renderer, surface);
+   SDL_FreeSurface(surface);
+
+   surface = IMG_Load(img_down);
+   if (!surface)
    {
       fprintf(stderr, "Can't load image %s\n", img_down);
       goto img_down_fail;
    }
-   button->hover = IMG_Load(img_hover);
-   if (!button->hover)
+   button->down = SDL_CreateTextureFromSurface(button->el.renderer, surface);
+   SDL_FreeSurface(surface);
+
+   surface = IMG_Load(img_hover);
+   if (!surface)
    {
       fprintf(stderr, "Can't load image %s\n", img_hover);
       goto img_hover_fail;
    }
+   button->hover = SDL_CreateTextureFromSurface(button->el.renderer, surface);
+   SDL_FreeSurface(surface);
+   surface = NULL;
+
    // set the internal variables
    button->state = BUTTON_NORMAL;
    button->el.loc.x = x;
    button->el.loc.y = y;
-   button->el.loc.w = button->up->w;
-   button->el.loc.h = button->up->h;
+   button->el.loc.w = button->w;
+   button->el.loc.h = button->h;
 
    // add it to the list of windows to draw
    CreateIfel(id, parent, &button->el, IFEL_BUTTON, DrawButton);
@@ -437,11 +485,11 @@ Button* CreatePngButton(int id, Ifel* parent, int x, int y, const char* img_up, 
 
    return button;
 
-   SDL_FreeSurface(button->hover);
+   //SDL_FreeSurface(button->hover);
 img_hover_fail:
-   SDL_FreeSurface(button->down);
+   //SDL_FreeSurface(button->down);
 img_down_fail:
-   SDL_FreeSurface(button->up);
+   //SDL_FreeSurface(button->up);
 img_up_fail:
    free(button);
    return NULL;
@@ -465,9 +513,9 @@ void DeleteButton(Button* btn)
 
    DeleteIfel(NULL, (Ifel*)btn);
 
-   SDL_FreeSurface(btn->up);
-   SDL_FreeSurface(btn->down);
-   SDL_FreeSurface(btn->hover);
+   //SDL_FreeSurface(btn->up);
+   //SDL_FreeSurface(btn->down);
+   //SDL_FreeSurface(btn->hover);
    free(btn);
 }
 
@@ -479,16 +527,33 @@ int InitUI(void)
    fprintf(stderr, "InitUI\n");
 
    //Start SDL 
-   SDL_Init(SDL_INIT_EVERYTHING);
+   SDL_Init(SDL_INIT_VIDEO);
 
    // Set up screen
-   screen = SDL_SetVideoMode(1024, 800, 32, SDL_SWSURFACE | SDL_SRCCOLORKEY);
-   if (!screen)
+   window = SDL_CreateWindow("Clonopoly",
+                          SDL_WINDOWPOS_CENTERED,
+                          SDL_WINDOWPOS_CENTERED,
+                          640, 480,
+                          0);
+   //screen = SDL_SetVideoMode(1024, 800, 32, SDL_SWSURFACE | SDL_SRCCOLORKEY);
+
+   if (!window)
    {
-      fprintf(stderr, "Error setting video mode\n");
+      fprintf(stderr, "Error creating main window: %s\n", SDL_GetError());
       returnCode = 1;
    }
 
+   renderer = SDL_CreateRenderer(window, -1, 0);
+   if (!renderer)
+   {
+      fprintf(stderr, "Error creating renderer\n");
+      returnCode = 10;
+   }
+
+   // set the logical screen size (before scaling)
+   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+   SDL_RenderSetLogicalSize(renderer, 1024, 800);
+ 
    // TTF is 'true type fonts'
    if (TTF_Init() != 0)
    {
@@ -537,6 +602,9 @@ int DestroyUI(void)
    // stop TTF
    TTF_Quit();
 
+   // destroy the main window
+   SDL_DestroyWindow(window);
+
    //Quit SDL
    SDL_Quit();
 
@@ -545,6 +613,8 @@ int DestroyUI(void)
 
 static void Redraw(void)
 {
+   SDL_RenderClear(renderer);
+
    // now redraw the screen by running through all Ifels in DFS manner
    //fprintf(stderr, "Redraw\n");
    if (elFocus)
@@ -558,13 +628,14 @@ static void Redraw(void)
       {
          el->draw(el);
          DrawIfelChildren(el);
-         rectangleColor(el->surface, el->loc.x, el->loc.y,
-            el->loc.x + el->loc.w - 1, el->loc.y + el->loc.h - 1, 0xFF00FF);
-         SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
+         //rectangleColor(el->surface, el->loc.x, el->loc.y,
+         //   el->loc.x + el->loc.w - 1, el->loc.y + el->loc.h - 1, 0xFF00FF);
+         //SDL_BlitSurface(el->surface, NULL, screen, &el->loc);
       }
       el = GetNextIfel(&i);
    }
-   SDL_Flip(screen);
+   //SDL_Flip(screen);
+   SDL_RenderPresent(renderer);
 }
 
 // the main event loop (dispatcher) function

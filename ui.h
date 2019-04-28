@@ -1,9 +1,9 @@
 #ifndef _UI__H
 #define _UI__H
 
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_ttf.h"
 #include "list.h"
-#include "SDL/SDL.h"
-#include "SDL/SDL_ttf.h"
 
 #define MB_NO     0
 #define MB_YES    1
@@ -37,7 +37,8 @@ typedef struct Ifel
 {
    int id;
    IfelType type;          // what kind of ifel is this
-   SDL_Surface* surface;   // every ifel must have a default surface
+//   SDL_Surface* surface;   // every ifel must have a default surface
+   SDL_Renderer* renderer; // every ifel points to the screen renderer
    int active;             // is this interface element visible & active
    SDL_Rect loc;           // relative boundaries on the owner ifel
    void* data;             // can keep a pointer to user-defined data here
@@ -55,17 +56,21 @@ typedef struct Ifel
 typedef struct Image
 {
    Ifel el;
-   SDL_Surface* surface;
+   //SDL_Surface* surface;
+   SDL_Texture* texture;
+   SDL_Rect loc;
 } Image;
 
 typedef struct Button
 {
    Ifel el;
-   SDL_Surface* up;
-   SDL_Surface* down;      // extend the normal interface by adding two more bitmaps (one for each state)
-   SDL_Surface* hover;
+   SDL_Texture* up;
+   SDL_Texture* down;      // extend the normal interface by adding two more bitmaps (one for each state)
+   SDL_Texture* hover;
    ButtonState state;      // remember the state of the button
    char* text;
+   int w;
+   int h;
 } Button;
 
 typedef struct MessageBox

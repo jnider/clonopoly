@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "SDL/SDL.h"
-#include "SDL/SDL_image.h"
-#include "SDL/SDL_gfxPrimitives.h"
-#include "SDL/SDL_ttf.h"
+//#include "SDL/SDL.h"
+//#include "SDL/SDL_image.h"
+//#include "SDL/SDL_gfxPrimitives.h"
+//#include "SDL/SDL_ttf.h"
 #include "game.h"
 #include "id.h"
 #include "ui_game_sdl.h"
