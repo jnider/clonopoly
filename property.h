@@ -2,7 +2,7 @@
 #define _PROPERTY__H
 
 #include <string>
-#include "SDL2/SDL.h" // SDL_Rect
+//#include "SDL2/SDL.h" // SDL_Rect
 //#include "game.h"
 
 #define MAX_HOUSES 5 // how many houses can be on each property (house #5 = hotel)
@@ -55,16 +55,16 @@ private:
 
 typedef struct property
 {
-   const std::string m_name; // printable property name
-   int m_value;              // original cost
-   enum PropertySet m_set;   // which set does this property belong to?
-   int m_rent[MAX_HOUSES+1]; // how much visitors have to pay
-   int m_mortgage;           // mortgage value
-   int m_houseCost;          // how much does it cost to buy a house
-   int m_numHouses;          // how many houses are on the property
-   int m_owner;               // who owns it?
-   bool m_mortgaged;         // is it mortgaged?
-   SDL_Rect m_loc;           // boundaries of the square on the board
+   const std::string name; // printable property name
+   int value;              // original cost
+   enum PropertySet set;   // which set does this property belong to?
+   int rent[MAX_HOUSES+1]; // how much visitors have to pay
+   int mortgage;           // mortgage value
+   int houseCost;          // how much does it cost to buy a house
+   int numHouses;          // how many houses are on the property
+   int owner;              // who owns it?
+   bool mortgaged;         // is it mortgaged?
+   //SDL_Rect m_loc;           // boundaries of the square on the board
 } property;
 
 #endif // _PROPERTY__H

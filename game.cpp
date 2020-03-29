@@ -1,74 +1,105 @@
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "game.h"
 #include "id.h"
 
-/*
-static void OnKeyPressed(Ifel* el, int key)
-{
-   switch(key)
-   {
-   case 'y':
-      break;
+#ifdef DEBUG
+#define DBG_PRINT fprintf
+#else
+#define DBG_PRINT(...)
+#endif // DEBUG
 
-   case 'n':
-      break;
-   }
-}
-*/
-
-static void OnMouseClick(Ifel* i)
-{
-   //fprintf(stderr, "OnMouseClick in %i\n", i->id);
-   switch(i->id)
-   {
-   case ID_BTN_OPTIONS:
-      break;
-
-   case ID_MSGBOX_ROLL:
-   case ID_BTN_ROLL:
-      break;
-   }
-}
-
-CGame::CGame(CGameUI& ui) :   m_ui(ui),
+extern property m_board[NUM_PROPERTIES];
+CGame::CGame(CGameUI* ui) :   m_ui(*ui),
                               gameOver(true),
-                              players(0),
+                              m_players(0),
                               doublesCount(0),
-                              currentPlayer(0)
+                              m_currentPlayer(0),
+										rolledDice(false)
 {
+	ui->Init(this);
+}
+
+
+bool CGame::Initialize()
+{
+	m_ui.SplashScreen();
+
+	return true;
 }
 
 bool CGame::IsCurrentPlayerInJail()
 {
-   return player[currentPlayer].inJail;
+   return m_player[m_currentPlayer].inJail;
+}
+
+int CGame::Play()
+{
+	// make sure at least 2 players are defined
+	if (m_players < 2)
+		return ERR_NO_PLAYERS;
+
+	while (!gameOver)
+	{
+		bool done = false;
+		StartTurn();
+		while (!done)
+		{
+			SetPlayerOptions();
+			int action = GetAction();
+			switch(action)
+			{
+			case ACTION_ROLL:
+				if (!rolledDice)
+				{
+					RollDice();
+					rolledDice = true;
+					MovePlayer(ACCORDING_TO_DICE);
+				}
+				break;
+
+			case ACTION_BUY:
+				break;
+
+			case ACTION_MORTGAGE:
+				printf("Mortgage is not implemented yet\n");
+				break;
+			case ACTION_TRADE:
+				printf("Trading is not implemented yet\n");
+				break;
+			case ACTION_DONE:
+				done = true;
+				break;
+			}
+		}
+		FinishTurn();
+	}
+
+	return OK;
 }
 
 void CGame::NewGame()
 {
-   fprintf(stderr, "New game\n");
+   DBG_PRINT(stderr, "New game\n");
 
    // reset ownership of all properties
    for (int i=0; i < NUM_PROPERTIES; i++)
       owner[i] = -1;
 
-   AddPlayer(ID_IMG_SHOE, "Joel");
-   m_ui.SetTokenActive(ID_IMG_SHOE);   
-   AddPlayer(ID_IMG_DOG, "Merav");
-   m_ui.SetTokenActive(ID_IMG_SHOE);   
+	// tell UI to give us some players!
+   DBG_PRINT(stderr, "Getting players\n");
+	m_ui.GetPlayers();
 
    srand(time(NULL));
-   currentPlayer = rand() % players;
+   m_currentPlayer = rand() % m_players;
    gameOver = false;
-
-   fprintf(stderr, "player %s starts\n", GetCurrentPlayer()->name);
-   StartTurn();
 }
 
 Player* CGame::GetCurrentPlayer()
 {
-   return &player[currentPlayer];
+   return &m_player[m_currentPlayer];
 }
 
 void CGame::Over()
@@ -79,16 +110,16 @@ void CGame::Over()
 
 void CGame::PlayerOutOfBusiness(int id)
 {
-   player[id].active = 0;
-   players--;
+   m_player[id].active = 0;
+   m_players--;
 
-   if (players == 1)
+   if (m_players == 1)
       Over();
 }
 
 unsigned int CGame::ActivePlayers()
 {
-   return players;
+   return m_players;
 }
 
 int CGame::HasAssets(int playerID)
@@ -104,67 +135,69 @@ void CGame::PayMoney(int from, int to, int amount)
 {
    if (from != PLAYER_BANK)
    {
-      //fprintf(stderr, "current: %i amount: %i\n", player[from].money, amount);
-      player[from].money -= amount;
+      //DBG_PRINT(stderr, "current: %i amount: %i\n", player[from].money, amount);
+      m_player[from].money -= amount;
 
       // check to see if he is out of money
-      while (player[from].money < 0 && HasAssets(from))
+      while (m_player[from].money < 0 && HasAssets(from))
       {
-         //fprintf(stderr, "Out of money!\n");
+         DBG_PRINT(stderr, "Out of money!\n");
          m_ui.LiquidateAssets();
       }
 
-      if (player[from].money < 0)
+      if (m_player[from].money < 0)
          PlayerOutOfBusiness(from);
    }
 
    if (to != PLAYER_BANK)
-      player[to].money += amount;
+      m_player[to].money += amount;
+
+	m_ui.SetCurrentPlayerStatus(m_player[m_currentPlayer]);
 }
 
 void CGame::FinishTurn()
 {
+	//DBG_PRINT(stderr, "Finishing turn for %s\n", player[m_currentPlayer].name);
+
    // reset the doubles counter
    doublesCount = 0;
 
    // go to the next active player's turn
-   currentPlayer = (currentPlayer + 1) % players;
-   while (!player[currentPlayer].active)
-      currentPlayer = (currentPlayer + 1) % players;
+   m_currentPlayer = (m_currentPlayer + 1) % m_players;
+   while (!m_player[m_currentPlayer].active)
+      m_currentPlayer = (m_currentPlayer + 1) % m_players;
 }
 
 void CGame::SetPlayerName(unsigned int id, const char* name)
 {
-   if (player[id].name)
+   if (m_player[id].name)
    {
-      free(player[id].name);
-      player[id].name = 0;
+      free(m_player[id].name);
+      m_player[id].name = 0;
    }
 
-   //player[id].name = (char*)malloc(strlen(name) + 1);
-   //strcpy(player[id].name, name);
-   player[id].name = strdup(name);
+   m_player[id].name = strdup(name);
 
-   //fprintf(stderr, "set player %i name to %s\n", id, player[id].name);
+   //DBG_PRINT(stderr, "set player %i name to %s\n", id, player[id].name);
 }
 
 bool CGame::AddPlayer(int token, const char* name)
 {
-   if (players >= MAX_PLAYERS)   
+   if (m_players >= MAX_PLAYERS)   
    {
-      //fprintf(stderr, "Maximum players %i is reached\n", MAX_PLAYERS);
+      DBG_PRINT(stderr, "Maximum players %i is reached\n", MAX_PLAYERS);
       return false;
    }
 
-   //fprintf(stderr, "Adding player %s\n", name);
-   player[players].token = token;
-   player[players].active = 1;
-   player[players].inJail = 0;
-   player[players].location = 0;
-   player[players].money = STARTING_CASH;
-   SetPlayerName(players, name);
-   player[players].index = players;
-   players++;
+   DBG_PRINT(stderr, "Adding player %s\n", name);
+   m_player[m_players].token = token;
+   m_player[m_players].active = 1;
+   m_player[m_players].inJail = 0;
+   m_player[m_players].location = 0;
+   m_player[m_players].money = STARTING_CASH;
+   SetPlayerName(m_players, name);
+   m_player[m_players].index = m_players;
+   m_players++;
 
 
    return true;
@@ -174,10 +207,10 @@ CGame::~CGame()
 {
    for (int i=0; i < MAX_PLAYERS; i++)
    {
-      if (player[i].name)
+      if (m_player[i].name)
       {
-         free(player[i].name);
-         player[i].name = 0;
+         free(m_player[i].name);
+         m_player[i].name = 0;
       }
    }
 }
@@ -199,12 +232,13 @@ unsigned int CGame::DoublesCount()
 
 void CGame::SetCurrentPlayerSquare(int square)
 {
-   player[currentPlayer].location = square;
+   m_player[m_currentPlayer].location = square;
+	m_ui.SetPlayerSquare(m_currentPlayer, square);
 }
 
 int CGame::GetCurrentPlayerSquare()
 {
-   return player[currentPlayer].location;
+   return m_player[m_currentPlayer].location;
 }
 
 void CGame::MovePlayer(int square)
@@ -216,35 +250,35 @@ void CGame::MovePlayer(int square)
       // first see if the player is in jail
       if (IsCurrentPlayerInJail())
       {
-         player[currentPlayer].turnsLeftInJail--;
-         //printf("%s is in jail - %i rolls left\n", player[currentPlayer].name, player[currentPlayer].turnsLeftInJail);
+         m_player[m_currentPlayer].turnsLeftInJail--;
+         //printf("%s is in jail - %i rolls left\n", player[m_currentPlayer].name, player[m_currentPlayer].turnsLeftInJail);
          doublesCount = 0; // can't accumulate doubles in jail
 
          // if you got doubles, you're out!
          if (dice[0] == dice[1])
          {
-            //printf("%s is out of jail (rolled doubles)\n", player[currentPlayer].name);
-            player[currentPlayer].inJail = 0;
-            player[currentPlayer].turnsLeftInJail = 0;
+            //printf("%s is out of jail (rolled doubles)\n", player[m_currentPlayer].name);
+            m_player[m_currentPlayer].inJail = 0;
+            m_player[m_currentPlayer].turnsLeftInJail = 0;
             doublesCount++;
             SetCurrentPlayerSquare(SQUARE_JUST_VISITING);
-            startSquare = GetPlayerSquare(currentPlayer);
+            startSquare = GetPlayerSquare(m_currentPlayer);
             // from here, join the normal flow as if we had been in 'just visiting'
          }
          else
          {
-            if (player[currentPlayer].turnsLeftInJail == 0)
+            if (m_player[m_currentPlayer].turnsLeftInJail == 0)
             { 
                // check if the player has a get out of jail free card
                // ask if the player wants to use a get out of jail free card
                // no? then he has to pay
-               //printf("%s has to pay to get out of jail\n", player[currentPlayer].name);
-               PayMoney(currentPlayer, PLAYER_BANK, 50);
-               player[currentPlayer].inJail = 0;
-               player[currentPlayer].turnsLeftInJail = 0;
-               SetPlayerSquare(currentPlayer, SQUARE_JUST_VISITING);
-               startSquare = GetPlayerSquare(currentPlayer);
-               //printf("%s is out of jail (paid $50)\n", player[currentPlayer].name);
+               //printf("%s has to pay to get out of jail\n", player[m_currentPlayer].name);
+               PayMoney(m_currentPlayer, PLAYER_BANK, 50);
+               m_player[m_currentPlayer].inJail = 0;
+               m_player[m_currentPlayer].turnsLeftInJail = 0;
+               SetPlayerSquare(m_currentPlayer, SQUARE_JUST_VISITING);
+               startSquare = GetPlayerSquare(m_currentPlayer);
+               //printf("%s is out of jail (paid $50)\n", player[m_currentPlayer].name);
             }
          }
       }
@@ -252,9 +286,9 @@ void CGame::MovePlayer(int square)
       {
          // check for doubles
          if (dice[0] == dice[1])
-            DoublesCountInc(); //doublesCount++;
+            DoublesCountInc();
          else
-            DoublesCountReset();// player[currentPlayer].doublesCount = 0;
+            DoublesCountReset();
       }
 
       // did you roll too many doubles in a row?
@@ -271,33 +305,38 @@ void CGame::MovePlayer(int square)
    else
    {
       // jump to a specific square, like 'jail', or something from a 'chance' or 'community chest'
-      SetPlayerSquare(currentPlayer, square);
+      SetPlayerSquare(m_currentPlayer, square);
    }
 
-   int endSquare = GetPlayerSquare(currentPlayer);
-   //printf("%s landed on %s\n", player[currentPlayer].name, board[endSquare].name);
+   int endSquare = GetPlayerSquare(m_currentPlayer);
+   //printf("%s landed on %s\n", player[m_currentPlayer].name, board[endSquare].name);
 
    // did you pass go? (and not go to jail)
    if ((endSquare != SQUARE_IN_JAIL) && (endSquare < startSquare))
    {
-      //printf("Passed GO - got $200\n");
-      PayMoney(PLAYER_BANK, currentPlayer, 200);
+      DBG_PRINT(stderr, "Passed Go - got $200\n");
+      PayMoney(PLAYER_BANK, m_currentPlayer, 200);
    }
 
    // check the special squares first
    int handled = 0;
+	int ret = 0;
    switch (endSquare)
    {
    case SQUARE_GO:
-      //printf("Got $200\n");
-      PayMoney(PLAYER_BANK, currentPlayer, 200);
+      DBG_PRINT(stderr, "Landed on Go - Got $200\n");
+      PayMoney(PLAYER_BANK, m_currentPlayer, 200);
       handled = 1;
       break;
 
    case SQUARE_INCOME_TAX:
-      //printf("Pay income tax\n");
+      DBG_PRINT(stderr, "Pay income tax\n");
       // give option to calculate 10% of assets - JKN
-      PayMoney(currentPlayer, PLAYER_BANK, 200);
+		ret = m_ui.IncomeTax();
+		if (ret == INCOME_TAX_10_PERCENT)
+      	PayMoney(m_currentPlayer, PLAYER_BANK, m_player[m_currentPlayer].money * 0.10);
+		else
+      	PayMoney(m_currentPlayer, PLAYER_BANK, 200);
       handled = 1;
       break;
 
@@ -308,18 +347,18 @@ void CGame::MovePlayer(int square)
       break;
       
    case SQUARE_LUXURY_TAX:
-      //printf("Pay luxury tax\n");
-      PayMoney(currentPlayer, PLAYER_BANK, 75);
+      DBG_PRINT(stderr, "Pay luxury tax\n");
+      PayMoney(m_currentPlayer, PLAYER_BANK, 75);
       handled = 1;
       break;
 
    case SQUARE_GO_TO_JAIL:
-      //printf("That's it - off to jail\n");
-      SetPlayerSquare(currentPlayer, SQUARE_IN_JAIL);
+      DBG_PRINT(stderr, "That's it - off to jail\n");
+      SetPlayerSquare(m_currentPlayer, SQUARE_IN_JAIL);
    case SQUARE_IN_JAIL:
-      //printf("%s is in jail\n", player[currentPlayer].name);
-      player[currentPlayer].inJail = 1;
-      player[currentPlayer].turnsLeftInJail = 3;
+      DBG_PRINT(stderr, "%s is in jail\n", m_player[m_currentPlayer].name);
+      m_player[m_currentPlayer].inJail = 1;
+      m_player[m_currentPlayer].turnsLeftInJail = 3;
       handled = 1;
       break;
 
@@ -328,6 +367,7 @@ void CGame::MovePlayer(int square)
    case 17:
    case 33:
       //printf("Pick a CC card\n");
+		m_ui.CommunityChestCard();
       handled = 1;
       break;
 
@@ -335,6 +375,7 @@ void CGame::MovePlayer(int square)
    case 22:
    case 36:
       //printf("Pick a Chance card\n");
+		m_ui.ChanceCard();
       handled = 1;
       break;
    }
@@ -342,46 +383,42 @@ void CGame::MovePlayer(int square)
    if (!handled)
    {
       // otherwise, it is a property. Is it unowned?
-      if (board.Property(endSquare).m_owner == -1)
+      if (m_board[endSquare].owner == -1)
       {
          // if you have enough money, do you want to buy the property?
-         if (player[currentPlayer].money < board.Property(endSquare).m_value) 
+         if (m_player[m_currentPlayer].money < m_board[endSquare].value) 
          {
-            //printf("You don't have enough money!\n");
-            //goto nomoney;
+            printf("You don't have enough money!\n");
+            goto nomoney;
          }
 
-         if (m_ui.BuyProperty(board.Property(endSquare)))
+         if (m_ui.BuyProperty(m_board[endSquare]))
          {
-            player[currentPlayer].money -= board.Property(endSquare).m_value; 
-            board.Property(endSquare).m_owner = currentPlayer;
-            //printf("%s bought %s\n", player[currentPlayer].name, board[endSquare].name);
-
-            // check to see if the player owns a set
+				BuyProperty(m_currentPlayer, m_board[endSquare].value, endSquare);
+				m_ui.SetCurrentPlayerStatus(m_player[m_currentPlayer]);
          }
          else
          {
-//nomoney:
+nomoney:
             // no money, or no will
-            //printf("auctions not implemented yet\n");
-            // Auction(endSquare); 
+            Auction(endSquare); 
          }
       }
       else
       {
          // property is already owned
          int rent;
-         int owner = board.Property(endSquare).m_owner;
-         if (owner == currentPlayer)
+         int owner = m_board[endSquare].owner;
+         if (owner == m_currentPlayer)
          {
-            //printf("owned by you!\n");
+            DBG_PRINT(stderr, "%s is owned by you!\n", m_board[endSquare].name.c_str());
          }
          else
          {
-            //printf("owned by %s\n", player[owner].name);
-            if (board.Property(endSquare).m_mortgaged)
+            DBG_PRINT(stderr, "%s is owned by %s\n", m_board[endSquare].name.c_str(), m_player[owner].name);
+            if (m_board[endSquare].mortgaged)
             {
-               //printf("mortgaged\n");
+            	DBG_PRINT(stderr, "%s is mortgaged :-)\n", m_board[endSquare].name.c_str());
             }
             else
             {
@@ -390,51 +427,47 @@ void CGame::MovePlayer(int square)
                   int rrCount = 0;
 
                   // count how many railroads are owned
-                  if (board.Property(SQUARE_READING_RR).m_owner == owner)
+                  if (m_board[SQUARE_READING_RR].owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_PENNSYLVANIA_RR).m_owner == owner)
+                  if (m_board[SQUARE_PENNSYLVANIA_RR].owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_BO_RR).m_owner == owner)
+                  if (m_board[SQUARE_BO_RR].owner == owner)
                      rrCount++;
-                  if (board.Property(SQUARE_SHORT_LINE_RR).m_owner == owner)
+                  if (m_board[SQUARE_SHORT_LINE_RR].owner == owner)
                      rrCount++;
 
                   // double rent for each additional railroad
-                  int houses = board.Property(endSquare).m_numHouses;
-                  rent = board.Property(endSquare).m_rent[houses] << (rrCount-1);
+                  int houses = m_board[endSquare].numHouses;
+                  rent = m_board[endSquare].rent[houses] << (rrCount-1);
                }
                else if ( endSquare == SQUARE_ELECTRIC_CO
                      || endSquare == SQUARE_WATER_WORKS)
                {
-                  int owner = board.Property(endSquare).m_owner;
+                  int owner = m_board[endSquare].owner;
                   // one utility is x4, both utilities is x10
-                  if (board.Property(SQUARE_ELECTRIC_CO).m_owner == owner
-                     && board.Property(SQUARE_WATER_WORKS).m_owner == owner)
+                  if (m_board[SQUARE_ELECTRIC_CO].owner == owner
+                     && m_board[SQUARE_WATER_WORKS].owner == owner)
                      rent = (dice[0] + dice[1]) * 10;
                   else
                      rent = (dice[0] + dice[1]) * 4;
                }
                else
                {
-                  int houses = board.Property(endSquare).m_numHouses;
-                  rent = board.Property(endSquare).m_rent[houses];
+                  int houses = m_board[endSquare].numHouses;
+                  rent = m_board[endSquare].rent[houses];
                }
-               //printf("%s owes %i in rent\n", player[currentPlayer].name, rent);
+               DBG_PRINT(stderr, "%s owes %i in rent\n", m_player[m_currentPlayer].name, rent);
    
-               PayMoney(currentPlayer, board.Property(endSquare).m_owner, rent);
+               PayMoney(m_currentPlayer, m_board[endSquare].owner, rent);
             }
          }
       }
    }
 
    // if you got doubles and you are not in jail, roll again
-   if (dice[0] == dice[1] && !player[currentPlayer].inJail)
+   if (dice[0] == dice[1] && !m_player[m_currentPlayer].inJail)
    {
-      m_ui.Doubles(OnMouseClick);
-   }
-   else
-   {
-      FinishTurn();
+      m_ui.Doubles();
    }
 }
 
@@ -442,23 +475,126 @@ void CGame::RollDice(void)
 {
    dice[0] = (rand() % 6) + 1;
    dice[1] = (rand() % 6) + 1;
-   //fprintf(stderr, "dice: %i %i\n", dice[0], dice[1]);
+   //DBG_PRINT(stderr, "dice: %i %i\n", dice[0], dice[1]);
+
+	m_ui.RollDice();
 }
 
 void CGame::SetPlayerSquare(int id, int square)
 {
-   player[id].location = square;
-   m_ui.SetPlayerSquare(player[id].token, board.Property(square).m_loc);
+   m_player[id].location = square;
+   m_ui.SetPlayerSquare(m_player[id].token, square);
 }
 
 int CGame::GetPlayerSquare(int id)
 {
-   return player[id].location;
+   return m_player[id].location;
 }
 
 int CGame::StartTurn()
 {
-   m_ui.SetCurrentPlayerStatus(player[currentPlayer]);
+	rolledDice = false;
+   m_ui.SetCurrentPlayerStatus(m_player[m_currentPlayer]);
    return 0;
+}
+
+void CGame::SetPlayerOptions()
+{
+	bool mortgage = m_player[m_currentPlayer].HasProperties();
+	bool buy = false;
+	bool sell = false;
+	bool trade = true;
+	m_ui.SetPlayerOptions(!rolledDice, mortgage, buy, sell, trade, rolledDice);
+}
+
+void CGame::ReadDice(int* d1, int *d2)
+{
+	*d1 = dice[0];
+	*d2 = dice[1];
+}
+
+int CGame::GetAction()
+{
+	return m_ui.GetAction();
+}
+
+const std::string CGame::GetSquareName(int square)
+{
+	return m_board[square].name;
+}
+
+void CGame::Auction(int square)
+{
+	DBG_PRINT(stderr, "Auctioning %s\n", m_board[square].name.c_str());
+
+	int index;
+	int currentBid = 0;
+	int leadingPlayer = -1;
+	int remainingPlayers = 0;
+	int auction_players[MAX_PLAYERS];
+
+	for (index = 0; index < MAX_PLAYERS; index++)
+	{
+		if (m_player[index].active)
+		{
+			printf("Setting player %i active for the auction\n", index);
+			auction_players[index] = 1;
+			remainingPlayers++;
+		}
+		else
+		{
+			printf("Setting player %i inactive for the auction\n", index);
+			auction_players[index] = 0;
+		}
+	}
+
+	while (remainingPlayers > 1)
+	{
+		DBG_PRINT(stderr, "There are %i remaining players in the auction\n", remainingPlayers);
+		// ask each player in turn how much they want to bid until everyone gives up (except one)
+		for (index = 0; index < MAX_PLAYERS; index++)
+		{
+			if (auction_players[index] == 1)
+			{
+				printf("Asking bid from %i\n", index);
+				int ret = m_ui.GetAuctionBid(m_player[index], currentBid);
+				DBG_PRINT(stderr, "Got a bid of %i\n", ret);
+				if (ret == -1) // fold
+				{
+					auction_players[index] = 0;
+					remainingPlayers--;
+					if (remainingPlayers == 1)
+						break;
+				}
+				else
+				{
+					currentBid = ret;
+					leadingPlayer = index;
+				}
+			}
+		}
+	}
+
+	DBG_PRINT(stderr, "%s won the auction with bid $%i.00\n", m_player[leadingPlayer].name, currentBid);
+	BuyProperty(leadingPlayer, currentBid, square);
+}
+
+void CGame::BuyProperty(int player, int price, int square)
+{
+	m_player[player].money -= price; 
+	m_board[square].owner = player;
+	m_player[player].AddProperty(&m_board[square]);
+	DBG_PRINT(stderr, "%s bought %s\n", m_player[player].name, m_board[square].name.c_str());
+}
+
+bool CGame::TokenInUse(int token)
+{
+	for (int index=0; index < MAX_PLAYERS; index++)
+	{
+		if (m_player[index].token == token)
+			return true;
+	}
+
+	return false;
 }
 

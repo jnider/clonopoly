@@ -6,16 +6,32 @@ CFLAGS=-O2 -std=c++11
 #fonts-freefont-ttf
 
 
-CPP_SRC=main.c ui.c ui_game_sdl.cpp list.c options.c board.cpp game.cpp player.cpp
+CPP_SRC=main.cpp list.c board.cpp game.cpp player.cpp
+LIBS=
 
+ifeq ($(DEBUG), y)
 CFLAGS += -DDEBUG
+endif
 
-.PHONY:
-	tags
+# enable SDL 1.2
+ifeq ($(UI_SDL12), y)
+	CPP_SRC += ui_sdl12.cpp
+endif
+
+# enable SDL 2.0
+ifeq ($(UI_SDL20), y)
+	CPP_SRC += ui_game_sdl.cpp
+	LIBS += -lSDL2 -lSDL2_image -lSDL2_gfx -lSDL2_ttf
+endif
+
+# always allow text UI
+CPP_SRC += ui_text.cpp
+CFLAGS += -DUI_TEXT
+
+.PHONY: tags
 
 all:
-	g++ $(CFLAGS) $(CPP_SRC) -o clonopoly -Wall -lSDL2 -lSDL2_image -lSDL2_gfx -lSDL2_ttf
-
+	g++ $(CFLAGS) $(CPP_SRC) -o clonopoly -Wall $(LIBS)
 
 clean:
 	rm -f *.o
