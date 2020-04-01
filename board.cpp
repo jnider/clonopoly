@@ -48,10 +48,3 @@ property m_board[NUM_PROPERTIES] =
    { "Boardwalk",             400, SET_BLUE,    {50, 200, 600, 1400, 1700, 2000}, 200, 200, 0, -1, 0 },
 };
 
-
-chance_card chance_cards[NUM_CHANCE_CARDS] =
-{
-	{ "Hospital Fees", "You had to go to the hospital. Pay $150" },
-	{ "Beauty Contest", "You won second place in a beauty contest. Receive $10" },
-};
-

@@ -12,8 +12,11 @@
 #define MAX_TOKENS 8
 #define STARTING_CASH 1500
 #define ACCORDING_TO_DICE -1
+#define MOVE_TO_NEXT_RR -2
+#define MOVE_TO_NEXT_UTIL -3
 #define PLAYER_BANK  0xFF
-#define NUM_CHANCE_CARDS 20
+#define NUM_CHANCE_CARDS 10
+#define NUM_CC_CARDS 10
 
 enum
 {
@@ -80,11 +83,23 @@ enum GameAction
 	ACTION_SELL,
 };
 
+enum ChanceAction
+{
+	ACTION_MOVE_RELATIVE,
+	ACTION_MOVE_TO_SQUARE,
+	ACTION_PAY_ALL_PLAYERS,
+	ACTION_GOOJF,
+	ACTION_PAY,
+	ACTION_GET_PAID,
+	ACTION_MOVE_TO_UTILITY,
+	ACTION_STREET_REPAIRS_CC,
+};
+
 struct chance_card
 {
-	std::string name;
 	std::string description;
-	//action;
+	int action;
+	int value;
 };
 
 class CGameUI;
@@ -126,10 +141,12 @@ public:
 	void Auction(int square);
 	void BuyProperty(int player, int price, int square);
 	bool TokenInUse(int i);
+	void Mortgage(int property);
+	int ChanceCard();
+	int CommunityChestCard();
 
 protected:
    CGameUI& m_ui;
-   //CClonopolyBoard board;
    bool gameOver;       // is the game active?
    unsigned int m_players;         // how many active players are there
    unsigned int doublesCount;       // current player can only roll doubles 3 times before going to jail
@@ -138,7 +155,6 @@ protected:
    int dice[2];
    int owner[NUM_PROPERTIES];
 	bool rolledDice;					// did the current player already roll the dice?
-   //property m_board[NUM_PROPERTIES];
 };
 
 #endif // _GAME__H

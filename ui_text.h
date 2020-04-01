@@ -24,8 +24,9 @@ public:
    void RollDice();
 	void SetPlayerOptions(bool roll, bool mortgage, bool buy, bool sell, bool trade, bool done);
 	int GetAction();
-	void CommunityChestCard();
-	void ChanceCard();
+	void CommunityChestCard(int card);
+	void ChanceCard(int card);
 	int IncomeTax();
 	int GetAuctionBid(Player& p, int price);
+	int Mortgage(Player& p);
 };

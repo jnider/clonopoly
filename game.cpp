@@ -11,6 +11,31 @@
 #define DBG_PRINT(...)
 #endif // DEBUG
 
+chance_card chance_cards[] =
+{
+	{ "Go back 3 spaces", 																	ACTION_MOVE_RELATIVE, -3 },
+	{ "Take a walk on the boardwalk. Advance token to Boardwalk", 				ACTION_MOVE_TO_SQUARE, SQUARE_BOARDWALK },
+	{ "You have been elected chairman of the board. Pay each player $50",	ACTION_PAY_ALL_PLAYERS, 50 },
+	{ "Get out of jail free", 																ACTION_GOOJF, 0 },
+	{ "Go directly to jail. Do not pass go, do not collect $200",				ACTION_MOVE_TO_SQUARE, SQUARE_IN_JAIL },
+	{ "You building and loan matures. Collect $150", 								ACTION_GET_PAID, 150 },
+	{ "Pay poor tax of $15",																ACTION_PAY, 15 },
+	{ "Take a ride on the Reading. If you pass go collect $200",				ACTION_MOVE_TO_SQUARE, SQUARE_READING_RR },
+	{ "Advance token to nearest utility",												ACTION_MOVE_TO_UTILITY, 0 },
+};
+
+chance_card community_chest_cards[NUM_CC_CARDS] =
+{
+	{ "Bank error in your favor. Collect $200",										ACTION_GET_PAID, 200 },
+	{ "Advance to go. Collect $200", 													ACTION_MOVE_TO_SQUARE, SQUARE_GO },
+	{ "Get out of jail free", 																ACTION_GOOJF, 0 },
+	{ "Go directly to jail. Do not pass go, do not collect $200",				ACTION_MOVE_TO_SQUARE, SQUARE_IN_JAIL },
+	{ "Pay hospital $100",																	ACTION_PAY, 100 },
+	{ "Life insurance matures. Collect $100",											ACTION_GET_PAID, 100 },
+	{ "You are assessed for street repairs", 											ACTION_STREET_REPAIRS_CC, 0 },
+	{ "Xmas fund matures. Collect $100",												ACTION_GET_PAID, 100 },
+};
+
 extern property m_board[NUM_PROPERTIES];
 CGame::CGame(CGameUI* ui) :   m_ui(*ui),
                               gameOver(true),
@@ -64,8 +89,9 @@ int CGame::Play()
 				break;
 
 			case ACTION_MORTGAGE:
-				printf("Mortgage is not implemented yet\n");
+				Mortgage(m_ui.Mortgage(m_player[m_currentPlayer]));
 				break;
+
 			case ACTION_TRADE:
 				printf("Trading is not implemented yet\n");
 				break;
@@ -244,9 +270,11 @@ int CGame::GetCurrentPlayerSquare()
 void CGame::MovePlayer(int square)
 {
    int startSquare = GetCurrentPlayerSquare();
+	int endSquare;
 
-   if (square == ACCORDING_TO_DICE)
+   switch (square)
    {
+	case ACCORDING_TO_DICE:
       // first see if the player is in jail
       if (IsCurrentPlayerInJail())
       {
@@ -301,14 +329,23 @@ void CGame::MovePlayer(int square)
       {
          SetCurrentPlayerSquare((startSquare + dice[0] + dice[1]) % NUM_PROPERTIES);
       }
-   }
-   else
-   {
+		break;
+
+	case MOVE_TO_NEXT_UTIL:
+		if (startSquare < SQUARE_ELECTRIC_CO)
+			endSquare = SQUARE_ELECTRIC_CO;
+		else if (startSquare < SQUARE_WATER_WORKS)
+			endSquare = SQUARE_WATER_WORKS;
+		else
+			endSquare = SQUARE_ELECTRIC_CO;
+		break;
+
+	default:
       // jump to a specific square, like 'jail', or something from a 'chance' or 'community chest'
       SetPlayerSquare(m_currentPlayer, square);
    }
 
-   int endSquare = GetPlayerSquare(m_currentPlayer);
+   endSquare = GetPlayerSquare(m_currentPlayer);
    //printf("%s landed on %s\n", player[m_currentPlayer].name, board[endSquare].name);
 
    // did you pass go? (and not go to jail)
@@ -362,12 +399,23 @@ void CGame::MovePlayer(int square)
       handled = 1;
       break;
 
+	case SQUARE_ELECTRIC_CO:
+	case SQUARE_WATER_WORKS:
+		// if one is owned, dice x4
+		//if both are owned, dice x10
+		// if sent by a card, x10
+		//if (square == MOVE_TO_NEXT_UTIL) // we were sent by a card
+      DBG_PRINT(stderr, "Pay utilities\n");
+      PayMoney(m_currentPlayer, m_board[endSquare].owner, 11);
+      handled = 1;
+		break;
+
    // community chest
    case 2:
    case 17:
    case 33:
       //printf("Pick a CC card\n");
-		m_ui.CommunityChestCard();
+		m_ui.CommunityChestCard(CommunityChestCard());
       handled = 1;
       break;
 
@@ -375,7 +423,7 @@ void CGame::MovePlayer(int square)
    case 22:
    case 36:
       //printf("Pick a Chance card\n");
-		m_ui.ChanceCard();
+		m_ui.ChanceCard(ChanceCard());
       handled = 1;
       break;
    }
@@ -583,7 +631,7 @@ void CGame::BuyProperty(int player, int price, int square)
 {
 	m_player[player].money -= price; 
 	m_board[square].owner = player;
-	m_player[player].AddProperty(&m_board[square]);
+	m_player[player].AddProperty(square);
 	DBG_PRINT(stderr, "%s bought %s\n", m_player[player].name, m_board[square].name.c_str());
 }
 
@@ -596,5 +644,64 @@ bool CGame::TokenInUse(int token)
 	}
 
 	return false;
+}
+
+void CGame::Mortgage(int property)
+{
+	// mark the property as mortgaged, and give the player more cash
+	m_board[property].mortgaged = true;
+
+	m_player[m_board[property].owner].money += m_board[property].value / 2;
+}
+
+int CGame::ChanceCard()
+{
+	int i;
+   int card = rand() % sizeof(chance_cards)/sizeof(chance_card);
+	switch(chance_cards[card].action)
+	{
+	case ACTION_MOVE_RELATIVE:
+      SetPlayerSquare(m_currentPlayer, m_player[m_currentPlayer].location + chance_cards[card].value);
+		MovePlayer(GetCurrentPlayerSquare());
+		break;
+
+	case ACTION_MOVE_TO_SQUARE:
+		MovePlayer(chance_cards[card].value);
+		break;
+
+	case ACTION_PAY_ALL_PLAYERS:
+		for (i=0; i < MAX_PLAYERS; i++)
+		{
+			if (i != m_currentPlayer && m_player[i].active)
+				PayMoney(m_currentPlayer, i, chance_cards[card].value);
+		}
+		break;
+
+	case ACTION_GOOJF:
+		break;
+
+	case ACTION_PAY:
+		PayMoney(m_currentPlayer, PLAYER_BANK, chance_cards[card].value);
+		break;
+
+	case ACTION_GET_PAID:
+		PayMoney(PLAYER_BANK, m_currentPlayer, chance_cards[card].value);
+		break;
+
+	case ACTION_MOVE_TO_UTILITY:
+		MovePlayer(MOVE_TO_NEXT_UTIL);
+		break;
+
+	//ACTION_STREET_REPAIRS_CC:
+	}
+
+	return card;
+}
+
+int CGame::CommunityChestCard()
+{
+   int card = rand() % sizeof(community_chest_cards)/sizeof(chance_card);
+
+	return card;
 }
 

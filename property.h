@@ -64,7 +64,6 @@ typedef struct property
    int numHouses;          // how many houses are on the property
    int owner;              // who owns it?
    bool mortgaged;         // is it mortgaged?
-   //SDL_Rect m_loc;           // boundaries of the square on the board
 } property;
 
 #endif // _PROPERTY__H

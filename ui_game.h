@@ -34,10 +34,11 @@ public:
    virtual void RollDice()=0;
 	virtual void SetPlayerOptions(bool roll, bool mortgage, bool buy, bool sell, bool trade, bool done)=0;
 	virtual int GetAction()=0;
-	virtual void CommunityChestCard()=0;
-	virtual void ChanceCard()=0;
+	virtual void CommunityChestCard(int card)=0;
+	virtual void ChanceCard(int card)=0;
 	virtual int IncomeTax()=0;
 	virtual int GetAuctionBid(Player& p, int price)=0;
+	virtual int Mortgage(Player& p)=0;
 
 protected:
 	CGame* m_game;

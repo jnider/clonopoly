@@ -9,6 +9,7 @@
 #endif // DEBUG
 
 extern property m_board[NUM_PROPERTIES];
+extern chance_card chance_cards[];
 
 static const char tokens[MAX_TOKENS + 1] = "@#^&*!~+";
 
@@ -271,14 +272,15 @@ int CTextUI::GetAction()
 	}
 }
 
-void CTextUI::CommunityChestCard()
+void CTextUI::CommunityChestCard(int card)
 {
-	printf("community chest\n");
+	printf("Community chest: %s\n", chance_cards[card].description.c_str());
+
 }
 
-void CTextUI::ChanceCard()
+void CTextUI::ChanceCard(int card)
 {
-	printf("chance\n");
+	printf("Chance: %s\n", chance_cards[card].description.c_str());
 }
 
 int CTextUI::IncomeTax()
@@ -332,5 +334,37 @@ int CTextUI::GetAuctionBid(Player& p, int currentBid)
 	}
 
 	return newBid;
+}
+
+int CTextUI::Mortgage(Player& p)
+{
+	int propertyToMortgage;
+	int index=0;
+
+	// print out a menu of all properties owned by this player
+	printf("Select a property to mortgage:\n");
+	for (index=0; index < NUM_PROPERTIES; index++)
+	{
+		if (p.OwnsProperty(index))
+		{
+			printf("%i: %s\n", index, m_board[index].name.c_str());
+		}
+	}
+
+	// get the selection
+	while (1)
+	{
+		//getc(stdin); // consume the newline
+		if (scanf("%i", &propertyToMortgage) == 0)
+		{
+			printf("%i is not a valid property\n", propertyToMortgage);
+			continue;
+		}
+
+		printf("%i is selected\n", propertyToMortgage);
+		break;
+	}
+
+	return propertyToMortgage;
 }
 
